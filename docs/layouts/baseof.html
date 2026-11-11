@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{- $title := partial "title.html" . }}
+<title>{{ if .IsHome }}Mobian on the Fairphone (Gen. 6){{ else }}{{ $title }} · {{ site.Title }}{{ end }}</title>
+<meta name="description" content="{{ site.Params.description }}">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230f1f1b'/><path d='M16 4 L18.4 13.6 L28 16 L18.4 18.4 L16 28 L13.6 18.4 L4 16 L13.6 13.6 Z' fill='%23c9a55c'/></svg>">
+{{ partial "style.html" . }}
+</head>
+<body>
+<div class="wrap">
+  <nav class="sidebar">
+    <a class="brand" href="{{ site.Home.RelPermalink }}"><svg class="star" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 1 L18.7 13.3 L31 16 L18.7 18.7 L16 31 L13.3 18.7 L1 16 L13.3 13.3 Z"/></svg>fp6-mobian</a>
+    {{- $cur := . }}
+    <ul>
+      <li{{ if .IsHome }} class="active"{{ end }}><a href="{{ site.Home.RelPermalink }}">Home</a></li>
+      {{- range site.Menus.main }}
+      {{- if .HasChildren }}
+      <li class="group">
+        <details{{ if or ($cur.HasMenuCurrent "main" .) ($cur.IsMenuCurrent "main" .) }} open{{ end }}>
+          <summary{{ if $cur.IsMenuCurrent "main" . }} class="active"{{ end }}>{{ .Name }}</summary>
+          <ul>
+            {{- range .Children }}
+            <li{{ if $cur.IsMenuCurrent "main" . }} class="active"{{ end }}><a href="{{ .URL }}">{{ .Name }}</a></li>
+            {{- end }}
+          </ul>
+        </details>
+      </li>
+      {{- else }}
+      <li{{ if $cur.IsMenuCurrent "main" . }} class="active"{{ end }}><a href="{{ .URL }}">{{ .Name }}</a></li>
+      {{- end }}
+      {{- end }}
+    </ul>
+    <div class="side-foot">
+      <a href="{{ site.Params.repo }}">source&nbsp;↗</a>
+      <a href="https://tarathestar.github.io/">tarathestar.github.io</a>
+    </div>
+  </nav>
+  <main class="content{{ if .IsHome }} home{{ end }}">
+    {{ block "main" . }}{{ end }}
+  </main>
+</div>
+</body>
+</html>

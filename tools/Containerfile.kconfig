@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Minimal environment for running kconfig (olddefconfig) on an arm64 kernel tree.
+# Mobian's qcom-linux debian/rules builds with gcc (no LLVM=1), so use the
+# Debian cross gcc rather than clang.
+FROM docker.io/library/debian:forky-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      make gcc libc6-dev gcc-aarch64-linux-gnu bc bison flex \
+ && rm -rf /var/lib/apt/lists/*
+RUN useradd -m -u 1000 builder
+USER builder

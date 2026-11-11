@@ -1,0 +1,39 @@
+Source: fp6-mobian-support
+Section: misc
+Priority: optional
+Maintainer: Tara <tarathestar@proton.me>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.2
+Rules-Requires-Root: no
+
+Package: fp6-mobian-support
+Architecture: all
+Depends: ${misc:Depends},
+         initramfs-tools,
+         libglib2.0-bin,
+         mkbootimg,
+         modemmanager,
+         qbootctl,
+         qcom-phone-utils,
+         qcom-support-common,
+Description: Fairphone (Gen. 6) support for Mobian
+ Device glue for the Fairphone (Gen. 6) (Qualcomm SM7635 "Milos") on Mobian:
+  - a boot write guard in place of qcom-phone-utils' zz-qcom-bootimg
+    (diverted): it writes the boot partition only when it already holds
+    Mobian, its AVB data is intact and the new image fits; fp6-boot-avb moves
+    the stock vbmeta to the end of the partition so larger images fit;
+  - an initramfs post-update hook, so package-triggered initramfs rebuilds
+    reach the boot partition too;
+  - fp6-make-bootimg, to build a boot image without writing it;
+  - the FP6 firmware and touchscreen modules in the initramfs (without
+    modem.mbn, which doesn't fit; the modem is started from the root
+    filesystem);
+  - droid-juicer: load erofs first, and reboot to fastboot while the phone is
+    RAM-booted;
+  - AudioReach topology (built from source), UCM, and echo cancellation for
+    calls, with imsd's call audio routed through it;
+  - sensor udev rules and module loading;
+  - fp6-lte-pin, which keeps the modem on LTE (a carrier workaround, see
+    /etc/default/fp6-lte-pin);
+  - no system suspend, and an apt pin that keeps kernels that can't boot the
+    phone off it.

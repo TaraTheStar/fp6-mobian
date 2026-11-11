@@ -1,0 +1,30 @@
+#!/bin/sh
+# fp6-mobian-support: start remoteprocs that are still offline once the root
+# filesystem is up. modem.mbn is kept out of the initramfs (it doesn't fit in
+# the boot partition), so the modem remoteproc, probed from the initramfs,
+# can't load its firmware there and stays offline. From the root filesystem
+# it can. Only remoteprocs whose firmware file exists are started.
+rc=0
+for r in /sys/class/remoteproc/remoteproc*; do
+    [ -e "$r/state" ] || continue
+    name="$(cat "$r/name" 2>/dev/null)"; state="$(cat "$r/state" 2>/dev/null)"
+    fw="$(cat "$r/firmware" 2>/dev/null)"
+    [ "$state" = offline ] || continue
+    found=""
+    for dir in /lib/firmware/updates/"$(uname -r)" /lib/firmware/updates /lib/firmware/"$(uname -r)" /lib/firmware; do
+        for ext in "" .zst .xz; do
+            [ -f "$dir/$fw$ext" ] && found="$dir/$fw$ext" && break 2
+        done
+    done
+    if [ -z "$found" ]; then
+        echo "fp6-remoteproc-start: $name is offline but $fw isn't installed (droid-juicer not run yet?)"
+        continue
+    fi
+    echo "fp6-remoteproc-start: starting $name ($found)"
+    if echo start > "$r/state"; then
+        echo "fp6-remoteproc-start: $name: $(cat "$r/state")"
+    else
+        echo "fp6-remoteproc-start: $name: start failed"; rc=1
+    fi
+done
+exit $rc

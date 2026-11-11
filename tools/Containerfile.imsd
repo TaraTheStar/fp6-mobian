@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# imsd with the Debian toolchain only (no Crafter.Build Flatpak):
+# clang/libc++ 22 for C++26 + `import std`, CMake + ninja, imsd's libraries.
+FROM docker.io/library/debian:forky
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      clang-22 libc++-22-dev libc++abi-22-dev lld-22 llvm-22 \
+      cmake ninja-build pkgconf ca-certificates \
+      libglib2.0-dev libopencore-amrnb-dev libopencore-amrwb-dev libvo-amrwbenc-dev \
+      dpkg-dev debhelper fakeroot file build-essential quilt lintian \
+ && rm -rf /var/lib/apt/lists/*

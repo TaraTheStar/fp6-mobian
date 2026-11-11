@@ -1,0 +1,20 @@
+{{- /*
+  Links between the docs are written GitHub-style, [kernel.md](kernel.md),
+  so they work in the file viewer. On the site they point at the built page,
+  and a link whose text is just the file name shows the page's title instead.
+*/ -}}
+{{- $u := urls.Parse .Destination -}}
+{{- $href := .Destination -}}
+{{- $text := .Text -}}
+{{- if and (not $u.IsAbs) (strings.HasSuffix $u.Path ".md") -}}
+  {{- $target := path.Join .PageInner.File.Dir $u.Path -}}
+  {{- with site.GetPage $target -}}
+    {{- $href = .RelPermalink -}}
+    {{- with $u.Fragment }}{{ $href = printf "%s#%s" $href . }}{{ end -}}
+    {{- if strings.HasSuffix $.PlainText ".md" }}{{ $text = partial "title.html" . }}{{ end -}}
+  {{- else -}}
+    {{- errorf "%s: link to %q does not resolve to a page" $.PageInner.File.Path $.Destination -}}
+  {{- end -}}
+{{- end -}}
+<a href="{{ $href }}"{{ with .Title }} title="{{ . }}"{{ end }}>{{ $text }}</a>
+{{- /* chomp trailing newline */ -}}

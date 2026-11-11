@@ -1,0 +1,41 @@
+#!/bin/sh
+# fp6-make-bootimg: build a boot.img from the installed kernel + initramfs with the
+# Fairphone (Gen. 6) parameters, WITHOUT writing any partition. For RAM-boot
+# testing: copy the result to the host and run `fastboot boot boot.img`.
+#
+# Usage: fp6-make-bootimg [output [kernel-version]]
+#   output defaults to /var/lib/fp6-mobian-support/boot.img, the kernel to the newest installed.
+# Parameters mirror mobian-recipes devices/qcom/configs/wip.toml + bootloader.sh.
+# Also used by the zz-qcom-bootimg guard to build the image it writes to boot.
+set -e
+
+OUT="${1:-/var/lib/fp6-mobian-support/boot.img}"
+KVER="${2:-$(linux-version list | grep -- '-milos$' | linux-version sort | tail -1)}"
+DTB="/usr/lib/linux-image-${KVER}/qcom/milos-fairphone-fp6.dtb"
+# Encrypted root: name the dm-crypt mapping (as Mobian's bootloader.sh does),
+# not the UUID of the filesystem inside it; otherwise the filesystem UUID.
+SRC="$(findmnt -n -o SOURCE /)"
+case "$SRC" in
+    /dev/mapper/*) ROOT="$SRC" ;;
+    *) ROOT="UUID=$(findmnt -n -o UUID /)" ;;
+esac
+
+for f in "/boot/vmlinuz-${KVER}" "/boot/initrd.img-${KVER}" "$DTB"; do
+    [ -f "$f" ] || { echo "E: missing $f" >&2; exit 1; }
+done
+
+CMDLINE="mobile.root=${ROOT} mobile.qcomsoc=qcom/milos mobile.vendor=fairphone mobile.model=fp6"
+CMDLINE="${CMDLINE} console=tty0 plymouth.enable=0 init=/sbin/init ro loglevel=7 splash"
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+cat "/boot/vmlinuz-${KVER}" "$DTB" > "$TMP/kernel-dtb"
+mkdir -p "$(dirname "$OUT")"
+mkbootimg -o "$OUT" --header_version 2 --pagesize 4096 \
+    --kernel_offset 0x8000 --ramdisk_offset 0x1000000 --second_offset 0x0 \
+    --tags_offset 0x100 --dtb_offset 0x01f00000 --dtb "$DTB" \
+    --os_version 99.87.36 --os_patch_level 2099-12-31 \
+    --kernel "$TMP/kernel-dtb" --ramdisk "/boot/initrd.img-${KVER}" \
+    --cmdline "$CMDLINE"
+echo "I: wrote $OUT (kernel ${KVER}, root ${ROOT}, $(stat -c %s "$OUT") bytes)"
+echo "I: on the host:  scp ${SUDO_USER:-mobian}@10.66.0.1:$OUT . && fastboot boot $(basename "$OUT")"

@@ -1,0 +1,4 @@
+0001-Add-a-CMake-build-for-distribution-toolchains.patch
+0002-ims-pdn-up-try-P-CSCFs-that-did-not-answer-last.patch
+0003-imsd-media-optional-PipeWire-targets-for-call-audio.patch
+0004-imsd-media-stop-pw-helpers-with-SIGTERM-before-SIGKILL.patch

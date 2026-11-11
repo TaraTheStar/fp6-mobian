@@ -1,0 +1,12 @@
+# FP6: the sensors are IIO devices on APPS-owned buses, and nothing serves the
+# Qualcomm sensor core (SSC) registry on this image (no hexagonrpcd). iio-sensor-
+# proxy 3.9 still tags fastrpc-adsp for its libssc drivers: ssc-light/ssc-compass
+# from its own 80- rule, ssc-accel/ssc-proximity from pmOS's 90- rule. The libssc
+# compass discover() then probes the registry for ~100 s in a nested main loop,
+# inside find_sensors(), before the daemon's per-type claim bookkeeping exists:
+# a ClaimProximity dispatched in that window hits g_ptr_array_add(NULL) +
+# driver_set_polling(NULL), the client stays registered and proximity polling
+# never starts for anyone (HasProximity true, ProximityNear stuck false). A
+# second claim in the window crashes the daemon in its claim handler. Drop the
+# tags. This file must sort after 80- and 90-.
+SUBSYSTEM=="misc", KERNEL=="fastrpc-*", ENV{IIO_SENSOR_PROXY_TYPE}=""

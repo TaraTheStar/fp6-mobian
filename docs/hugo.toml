@@ -1,0 +1,102 @@
+# Hugo site for the fp6-mobian documentation.
+# Local preview:  hugo server --source docs      (from the repo root)
+# Build:          hugo --source docs             (output in docs/public/)
+# Deployed to GitHub Pages by .github/workflows/docs.yml.
+
+baseURL = "https://tarathestar.github.io/fp6-mobian/"
+title = "fp6-mobian"
+disableKinds = ["taxonomy", "term", "rss", "sitemap"]
+uglyURLs = true
+enableGitInfo = false
+timeZone = "UTC"
+
+[params]
+  description = "Mobian (Debian + Phosh) as a daily phone on the Fairphone (Gen. 6): kernel, device glue, VoLTE, and how to install it without losing the modem."
+  repo = "https://github.com/TaraTheStar/fp6-mobian"
+
+# Plain code blocks: the shell snippets read better unhighlighted, and
+# Hugo's inline highlight colours ignore the light/dark switch.
+[markup.highlight]
+  codeFences = false
+
+[markup.tableOfContents]
+  startLevel = 2
+  endLevel = 3
+
+# The pages keep no front matter so they stay clean on GitHub. Titles come
+# from each page's first heading (partials/title.html); order comes from here.
+[[menus.main]]
+  name = "Overview"
+  pageRef = "/overview"
+  weight = 10
+[[menus.main]]
+  name = "Install"
+  pageRef = "/reproduce"
+  weight = 20
+[[menus.main]]
+  name = "Components"
+  identifier = "components"
+  pageRef = "/components"
+  weight = 30
+[[menus.main]]
+  name = "Upstreaming"
+  pageRef = "/upstreaming"
+  weight = 40
+
+# Components in the order overview.md introduces them.
+[[menus.main]]
+  name = "Kernel"
+  pageRef = "/components/kernel"
+  parent = "components"
+  weight = 1
+[[menus.main]]
+  name = "Boot and AVB"
+  pageRef = "/components/boot-and-avb"
+  parent = "components"
+  weight = 2
+[[menus.main]]
+  name = "Firmware"
+  pageRef = "/components/firmware"
+  parent = "components"
+  weight = 3
+[[menus.main]]
+  name = "Support package"
+  pageRef = "/components/support-package"
+  parent = "components"
+  weight = 4
+[[menus.main]]
+  name = "Modem and VoLTE"
+  pageRef = "/components/modem-and-volte"
+  parent = "components"
+  weight = 5
+[[menus.main]]
+  name = "Audio"
+  pageRef = "/components/audio"
+  parent = "components"
+  weight = 6
+[[menus.main]]
+  name = "Sensors and cameras"
+  pageRef = "/components/sensors-and-cameras"
+  parent = "components"
+  weight = 7
+[[menus.main]]
+  name = "Image recipes"
+  pageRef = "/components/image-recipes"
+  parent = "components"
+  weight = 8
+[[menus.main]]
+  name = "Tools"
+  pageRef = "/components/tools"
+  parent = "components"
+  weight = 9
+
+# The *.md files live in docs/ so they stay readable on GitHub; mount them
+# into Hugo's content tree instead of moving them. _index.md is the home page.
+[[module.mounts]]
+  source = "."
+  target = "content"
+  files = ["/*.md", "/**/*.md", "!/layouts/**", "!/public/**", "!/resources/**"]
+
+[[module.mounts]]
+  source = "layouts"
+  target = "layouts"

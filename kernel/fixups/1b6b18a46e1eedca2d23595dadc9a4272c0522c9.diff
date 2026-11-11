@@ -1,0 +1,28 @@
+--- a/1b6b18a46e1eedca2d23595dadc9a4272c0522c9.patch
++++ b/1b6b18a46e1eedca2d23595dadc9a4272c0522c9.patch
+@@ -30,10 +30,10 @@
+  1 file changed, 59 insertions(+)
+ 
+ diff --git a/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts b/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts
+-index dd4a12e51931..852dfbba8c48 100644
++index 6a878ad0e..1b16fa595 100644
+ --- a/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts
+ +++ b/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts
+-@@ -55,6 +55,49 @@
++@@ -55,6 +55,49 @@ magnetometer@2c {
+  		};
+  	};
+  
+@@ -83,9 +83,9 @@
+  	gpio-keys {
+  		compatible = "gpio-keys";
+  
+-@@ -1098,6 +1141,22 @@
+- 			       <13 1>, /* NC */
+- 			       <63 2>; /* WLAN UART */
++@@ -1203,6 +1246,22 @@ pd-pins {
++ 		};
++ 	};
+  
+ +	imu_int_default: imu-int-default-state {
+ +		/* INT1, push-pull active-high */

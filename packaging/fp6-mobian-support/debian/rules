@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+
+TPLG = audio/MILOS-Fairphone-Gen6-tplg.bin
+
+%:
+	dh $@
+
+# Built from source by tools/build-topology.sh, outside the package build:
+# it needs the audioreach-topology tree and alsatplg, and is not kept in git.
+execute_before_dh_install:
+	@test -f $(TPLG) || { echo "$(TPLG) is missing: run tools/build-topology.sh first" >&2; exit 1; }
+
+# fp6-remoteproc-start is not started on install: it only matters at boot,
+# and starting a remoteproc from a package upgrade is not its job.
+override_dh_installsystemd:
+	dh_installsystemd --no-start fp6-remoteproc-start.service
+	dh_installsystemd fp6-lte-pin.service

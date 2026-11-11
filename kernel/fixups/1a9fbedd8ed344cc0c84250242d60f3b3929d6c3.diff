@@ -1,0 +1,21 @@
+--- a/1a9fbedd8ed344cc0c84250242d60f3b3929d6c3.patch
++++ b/1a9fbedd8ed344cc0c84250242d60f3b3929d6c3.patch
+@@ -22,10 +22,10 @@
+  1 file changed, 10 insertions(+)
+ 
+ diff --git a/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts b/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts
+-index 345e6a3ad9fd..1e50eb4a2345 100644
++index d008833d4..b05c3e748 100644
+ --- a/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts
+ +++ b/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts
+-@@ -206,6 +206,16 @@
++@@ -293,6 +293,16 @@ vph_pwr: regulator-vph-pwr {
+  		regulator-boot-on;
+  	};
+  
+@@ -41,4 +41,4 @@
+ +
+  	sound {
+  		compatible = "qcom,milos-sndcard", "qcom,sm8450-sndcard";
+- 		model = "MILOS-Fairphone-Gen6";
++ 		model = "Fairphone (Gen. 6)";

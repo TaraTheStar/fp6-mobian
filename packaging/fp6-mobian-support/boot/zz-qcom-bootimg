@@ -1,0 +1,95 @@
+#!/bin/sh
+# fp6-mobian-support: replaces qcom-phone-utils' zz-qcom-bootimg on the
+# Fairphone (Gen. 6) (the original is diverted to
+# /usr/lib/fp6-mobian-support/zz-qcom-bootimg.distrib). Called by the kernel
+# postinst hooks and by droid-juicer after first-boot firmware extraction.
+#
+# It writes a boot image built by fp6-make-bootimg to the active slot's boot
+# partition, but only when all of these hold:
+#  1. the partition already holds a Mobian boot image (cmdline has mobile.root=).
+#     While Mobian is RAM-booted for testing, boot still holds stock Android and
+#     must not be touched. FP6_ALLOW_BOOT_WRITE=1 overrides this check only.
+#  2. the partition's AVB footer and chained vbmeta are intact (fp6-boot-avb).
+#     The bootloader rejects the slot without them, even unlocked, and then
+#     even `fastboot boot` fails while that slot is current.
+#  3. the new image fits before that vbmeta.
+# Otherwise it warns and exits 0 (droid-juicer treats a failure as fatal).
+set -e
+
+REAL=/usr/lib/fp6-mobian-support/zz-qcom-bootimg.distrib
+# FP6_LIB / FP6_CMDLINE / FP6_MAKE_BOOTIMG: test seams only
+LIB="${FP6_LIB:-/usr/lib/fp6-mobian-support}"
+CMDLINE="${FP6_CMDLINE:-/proc/cmdline}"
+MAKE_BOOTIMG="${FP6_MAKE_BOOTIMG:-/usr/sbin/fp6-make-bootimg}"
+
+# Not on the phone (image build chroot/VM): the real script skips itself there
+if ! grep -q "mobile.model=" "$CMDLINE" 2>/dev/null; then
+    [ -x "$REAL" ] && exec "$REAL" "$@"
+    exit 0
+fi
+
+FORCE=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -f|--force) FORCE=1; shift ;;
+        -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+        -*) shift ;;
+        *) break ;;
+    esac
+done
+VERSION="$1"
+[ -n "$VERSION" ] || { echo "usage: $0 [-f] <kernel-version>" >&2; exit 1; }
+
+# Only milos kernels can boot the FP6; any other one (a Debian kernel pulled in
+# by accident) must never end up in boot_a, nor count as "the latest".
+case "$VERSION" in
+    *-milos) ;;
+    *) echo "W: fp6 guard: ${VERSION} is not a milos kernel; NOT packing it into boot"; exit 0 ;;
+esac
+LATEST="$(linux-version list | grep -- '-milos$' | linux-version sort | tail -1)"
+if [ "$FORCE" = 0 ] && linux-version compare "$VERSION" lt "$LATEST"; then
+    echo "I: fp6 guard: not updating boot for ${VERSION} < ${LATEST}"
+    exit 0
+fi
+
+rc=0; BOOTPART="$("$LIB/boot-is-mobian")" || rc=$?
+case $rc in
+    0) ;;
+    1)
+        if [ "${FP6_ALLOW_BOOT_WRITE:-0}" != 1 ]; then
+            echo "W: fp6 guard: ${BOOTPART} does not hold a Mobian boot image (RAM-boot test?)."
+            echo "W: fp6 guard: NOT rewriting it. Use fp6-make-bootimg to get a boot.img for 'fastboot boot',"
+            echo "W: fp6 guard: or set FP6_ALLOW_BOOT_WRITE=1 to install Mobian's boot image deliberately."
+            exit 0
+        fi ;;
+    *)
+        echo "W: fp6 guard: cannot determine the active boot slot, NOT touching boot"
+        exit 0 ;;
+esac
+
+if ! MAX="$("$LIB/fp6-boot-avb" maxsize "$BOOTPART")"; then
+    echo "W: fp6 guard: the AVB footer/vbmeta in ${BOOTPART} is not intact. Writing a boot image now"
+    echo "W: fp6 guard: would leave the slot unbootable. NOT writing. Fix it first with:"
+    echo "W: fp6 guard:   FP6_ALLOW_BOOT_WRITE=1 $LIB/fp6-boot-avb relocate <stock boot image> ${BOOTPART}"
+    exit 0
+fi
+
+TMP="$(mktemp -d /tmp/fp6-bootimg.XXXXXX)"
+trap 'rm -rf "$TMP"' EXIT
+"$MAKE_BOOTIMG" "$TMP/boot.img" "$VERSION"
+SIZE="$(stat -c %s "$TMP/boot.img")"
+if [ "$SIZE" -gt "$MAX" ]; then
+    echo "W: fp6 guard: the new boot image is ${SIZE} bytes; only ${MAX} fit before the AVB vbmeta"
+    echo "W: fp6 guard: in ${BOOTPART}. NOT writing (initramfs too big? see the fp6-firmware hook)."
+    exit 0
+fi
+
+echo "I: fp6 guard: writing ${SIZE}-byte boot image (kernel ${VERSION}) to ${BOOTPART} (limit ${MAX})"
+dd if="$TMP/boot.img" of="$BOOTPART" bs=1M conv=notrunc,fsync status=none
+sync
+if ! head -c "$SIZE" "$BOOTPART" | cmp -s - "$TMP/boot.img"; then
+    echo "E: fp6 guard: read-back of ${BOOTPART} differs from the image just written!" >&2
+    exit 1
+fi
+"$LIB/fp6-boot-avb" check "$BOOTPART"
+echo "I: fp6 guard: ${BOOTPART} updated and verified"

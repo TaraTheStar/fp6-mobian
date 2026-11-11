@@ -1,0 +1,11 @@
+{{ define "main" }}
+<h1>Components</h1>
+<p>One note per component: what it does, why it is shaped that way, where it comes from, its licence, and how it was tested.</p>
+<ul class="cards">
+  {{- range site.Menus.main }}{{ if eq .Identifier "components" }}
+  {{- range .Children }}
+  <li><a href="{{ .URL }}">{{ partial "title.html" .Page }}</a></li>
+  {{- end }}
+  {{- end }}{{ end }}
+</ul>
+{{ end }}

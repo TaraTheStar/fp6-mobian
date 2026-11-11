@@ -1,0 +1,10 @@
+#!/bin/sh
+# fp6-mobian-support: replacement for droid-juicer's ExecStartPost=reboot.
+# While Mobian is RAM-booted (`fastboot boot`) the boot partition still holds
+# stock Android, and with dtbo erased that may not boot. Go back to fastboot
+# instead, so the next `fastboot boot` picks up the new initramfs.
+if /usr/lib/fp6-mobian-support/boot-is-mobian >/dev/null; then
+    exec systemctl reboot
+fi
+echo "fp6: boot partition is not Mobian (RAM-boot test): rebooting to fastboot"
+exec systemctl reboot --reboot-argument=bootloader

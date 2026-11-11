@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Build environment for audioreach-topology (m4 -> alsatplg), Debian forky.
+FROM docker.io/library/debian:forky-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends cmake make m4 alsa-utils gcc g++ libc6-dev \
+ && rm -rf /var/lib/apt/lists/*
+RUN useradd -m -u 1000 builder
+USER builder

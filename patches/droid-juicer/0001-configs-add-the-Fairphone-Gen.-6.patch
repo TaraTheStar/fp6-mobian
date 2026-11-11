@@ -1,0 +1,61 @@
+From d2eaf39e9602df660d323de9b50ee7490ce383ef Mon Sep 17 00:00:00 2001
+From: Tara <tarathestar@proton.me>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH] configs: add the Fairphone (Gen. 6)
+
+Firmware for the FP6 (Qualcomm Milos), at the paths its device tree asks
+for. The modem_pr folder is required: without the modem configs the modem
+remoteproc runs but the modem stays offline.
+---
+ configs/fairphone,fp6.toml | 42 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+ create mode 100644 configs/fairphone,fp6.toml
+
+diff --git a/configs/fairphone,fp6.toml b/configs/fairphone,fp6.toml
+new file mode 100644
+index 0000000..f97d6ca
+--- /dev/null
++++ b/configs/fairphone,fp6.toml
+@@ -0,0 +1,42 @@
++[juicer]
++dynpart = "super"
++firmware = [
++    { partition = "vendor", origin = "firmware", destination = "qcom/milos/fairphone/fp6", files = [
++            { name = "gen80300_zap.mbn" },
++            { name = "vpu20_2v.mbn" },
++            { name = "aw882xx_acf.bin", rename = "aw88261_acf.bin" },
++        ] },
++    { partition = "vendor", origin = "firmware", destination = "qcom", files = [
++            { name = "gen80300_gmu.bin" },
++            { name = "gen80300_sqe.fw" },
++        ] },
++    { partition = "modem", origin = "image", destination = "qcom/milos/fairphone/fp6", files = [
++            { name = "adsp.mdt" },
++            { name = "adsp_dtb.mdt" },
++            { name = "adspr.jsn" },
++            { name = "adsps.jsn" },
++            { name = "adspua.jsn" },
++            { name = "battmgr.jsn" },
++            { name = "cdsp.mdt" },
++            { name = "cdsp_dtb.mdt" },
++            { name = "cdspr.jsn" },
++            { name = "ipa_fws.mdt" },
++            { name = "modem.mdt" },
++            { name = "modemr.jsn" },
++        ] },
++    { partition = "modem", origin = "image/qca6750", destination = "qcom/milos/fairphone/fp6", files = [
++            { name = "wpss.mdt" },
++        ] },
++    { partition = "bluetooth", origin = "image", destination = "qca", files = [
++            { name = "msbtfw12.mbn" },
++            { name = "msnv12.bin" },
++        ] },
++]
++# Modem configs (mcfg MBNs + RF/SO configs): the modem asks tqftpserv for
++# /readonly/firmware/image/modem_pr/... and stays offline without them.
++# Destination is relative to the extract path (/lib/firmware/updates).
++folders = [
++    { partition = "modem", destination = "qcom/milos/fairphone/fp6", folders = [
++        { name = "image/modem_pr" },
++    ] },
++]

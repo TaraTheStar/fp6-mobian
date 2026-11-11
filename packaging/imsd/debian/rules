@@ -1,0 +1,26 @@
+#!/usr/bin/make -f
+# -fortify: with _FORTIFY_SOURCE glibc defines printf/fprintf & co. as
+# internal-linkage inline wrappers, which libc++'s std module cannot export
+# ("using declaration referring to 'fprintf' with internal linkage cannot be
+# exported"), so `import std` does not build with fortify enabled.
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all,-fortify
+# imsd is C++26 with `import std`; upstream builds it with clang + libc++,
+# and so does this package. Flags are global so the std module and every
+# user are compiled with the same configuration.
+export CXX = clang++-22
+export DEB_CXXFLAGS_MAINT_APPEND = -stdlib=libc++
+export DEB_LDFLAGS_MAINT_APPEND = -stdlib=libc++
+
+%:
+	dh $@ --buildsystem=cmake+ninja
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		-DIMSD_LIBCXX_MODULES_JSON=/usr/lib/llvm-22/lib/libc++.modules.json
+
+execute_after_dh_install:
+	install -m644 packaging/org.ofono.conf \
+		debian/imsd-ofono/usr/share/dbus-1/system.d/imsd-ofono.conf
+
+# dwz does not handle the DWARF clang emits here (fails on every binary)
+override_dh_dwz:

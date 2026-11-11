@@ -1,0 +1,19 @@
+# built by tools/build-topology.sh; not distributed as source
+/packaging/fp6-mobian-support/audio/MILOS-Fairphone-Gen6-tplg.bin
+# dpkg-buildpackage output lands next to the package directory
+/packaging/*.deb
+/packaging/*.ddeb
+/packaging/*.dsc
+/packaging/*.tar.*
+/packaging/*.buildinfo
+/packaging/*.changes
+/packaging/*/debian/.debhelper/
+/packaging/*/debian/debhelper-build-stamp
+/packaging/*/debian/files
+/packaging/*/debian/*.substvars
+/packaging/*/debian/*.debhelper
+/packaging/*/debian/fp6-mobian-support/
+# hugo build output (docs/hugo.toml)
+/docs/public/
+/docs/resources/
+/docs/.hugo_build.lock

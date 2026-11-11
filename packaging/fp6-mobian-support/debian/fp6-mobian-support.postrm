@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+#DEBHELPER#
+
+if [ "$1" = remove ] || [ "$1" = purge ] || [ "$1" = abort-install ] || [ "$1" = disappear ]; then
+    dpkg-divert --package fp6-mobian-support --remove --rename \
+        --divert /usr/lib/fp6-mobian-support/zz-qcom-bootimg.distrib \
+        /etc/kernel/postinst.d/zz-qcom-bootimg
+fi

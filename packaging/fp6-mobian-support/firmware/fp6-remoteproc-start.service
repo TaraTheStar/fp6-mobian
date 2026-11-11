@@ -1,0 +1,15 @@
+# fp6-mobian-support
+[Unit]
+Description=Start Fairphone (Gen. 6) remoteprocs left offline by the initramfs (modem)
+# rmtfs/tqftpserv serve the modem's EFS and configs while it boots
+After=local-fs.target rmtfs.service tqftpserv.service
+Wants=rmtfs.service tqftpserv.service
+Before=ModemManager.service qcom-modem-setup.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/fp6-mobian-support/fp6-remoteproc-start
+
+[Install]
+WantedBy=multi-user.target

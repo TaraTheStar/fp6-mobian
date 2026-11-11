@@ -1,0 +1,129 @@
+#!/bin/sh
+# fp6-mobian-support: inspect / prepare the AVB data of the FP6 boot partition.
+#
+# On the Fairphone (Gen. 6) `boot` is an AVB *chained* partition: vbmeta_X has a
+# chain descriptor for it, and the boot partition's last 64 bytes are an AVB
+# footer that points to a signed vbmeta struct inside the partition. The
+# bootloader (unlocked) accepts a hash mismatch, but rejects the slot when that
+# vbmeta is missing or corrupt ("Load Error"), and then even `fastboot boot`
+# fails while that slot is current. Stock puts the vbmeta right after its
+# 35 MB Android image, so any bigger Mobian image written over it bricks the
+# slot. `relocate` moves the (unchanged, still validly signed) vbmeta to the end
+# of the partition, so boot images up to almost the full partition size fit.
+#
+#   fp6-boot-avb check    [PART]       footer + vbmeta state; exit 0 if intact
+#   fp6-boot-avb maxsize  [PART]       largest boot image that leaves them intact
+#   fp6-boot-avb relocate SRC [PART]   copy the footer + vbmeta of SRC (a stock boot
+#                                      image or partition dump) to the end of PART
+#                                      (needs FP6_ALLOW_BOOT_WRITE=1)
+# PART defaults to the active slot's boot partition.
+set -e
+
+FOOTER=64
+RESERVE=65536   # vbmeta goes to PART_SIZE - RESERVE
+
+die() { echo "E: fp6-boot-avb: $*" >&2; exit 1; }
+
+size_of() {
+    if [ -b "$1" ]; then blockdev --getsize64 "$1"; else stat -L -c %s "$1"; fi
+}
+# big-endian u64 at byte offset $2 of file $1
+be64() {
+    od -An -v -tu1 -j "$2" -N 8 "$1" | awk '{for (i = 1; i <= NF; i++) v = v * 256 + $i} END {printf "%d\n", v}'
+}
+bytes_at() {   # $1 file, $2 offset, $3 count -> raw bytes on stdout
+    dd if="$1" iflag=skip_bytes,count_bytes skip="$2" count="$3" bs=64K status=none
+}
+u64_bytes() {  # big-endian encoding of $1
+    v=$1; out=""; i=0
+    while [ $i -lt 8 ]; do
+        out="$(printf '\\%03o' $((v % 256)))$out"; v=$((v / 256)); i=$((i + 1))
+    done
+    printf "$out"
+}
+default_part() {
+    if [ -e /dev/disk/by-partlabel/boot_a ]; then
+        s="$(qbootctl -x 2>/dev/null)" || true
+        [ -n "$s" ] || die "can't determine the active slot (qbootctl -x)"
+        echo "/dev/disk/by-partlabel/boot$s"
+    else
+        echo /dev/disk/by-partlabel/boot
+    fi
+}
+
+le32() { od -An -v -tu4 --endian=little -j "$2" -N 4 "$1" | tr -d ' '; }
+# Upper bound of the bytes used by the Android boot image at the start of $1
+# (header + kernel + ramdisk + 4 MiB for second/dtb/recovery_dtbo); fails closed.
+bootimg_end() {
+    hv="$(le32 "$1" 40)"; k="$(le32 "$1" 8)"
+    case "$hv" in
+        0|1|2) r="$(le32 "$1" 16)"; ps="$(le32 "$1" 36)" ;;
+        3|4)   r="$(le32 "$1" 12)"; ps=4096 ;;
+        *)     return 1 ;;
+    esac
+    case "$ps$k$r" in *[!0-9]*|"") return 1 ;; esac
+    [ "$ps" -ge 2048 ] && [ "$ps" -le 65536 ] || return 1
+    echo $(( ps + (k + ps - 1) / ps * ps + (r + ps - 1) / ps * ps + 4 * 1024 * 1024 ))
+}
+
+# Sets PS, VBO, VBS for $1; returns 1 (with a message) if the AVB data isn't intact
+read_avb() {
+    PS="$(size_of "$1")"
+    [ "$(bytes_at "$1" $((PS - FOOTER)) 4)" = AVBf ] || { echo "no AVB footer at the end of $1"; return 1; }
+    VBO="$(be64 "$1" $((PS - FOOTER + 20)))"
+    VBS="$(be64 "$1" $((PS - FOOTER + 28)))"
+    if [ "$VBS" -le 0 ] || [ $((VBO + VBS)) -gt $((PS - FOOTER)) ]; then
+        echo "AVB footer of $1 is invalid (vbmeta offset $VBO size $VBS)"; return 1
+    fi
+    [ "$(bytes_at "$1" "$VBO" 4)" = AVB0 ] || {
+        echo "AVB footer of $1 points to offset $VBO, but there is no vbmeta there (overwritten?)"; return 1; }
+    return 0
+}
+
+cmd="$1"; shift || true
+case "$cmd" in
+    check)
+        P="${1:-$(default_part)}"
+        if read_avb "$P"; then
+            echo "$P: AVB footer OK, vbmeta at $VBO ($VBS bytes), partition $PS bytes; boot images up to $VBO bytes fit"
+        else
+            exit 1
+        fi
+        ;;
+    maxsize)
+        P="${1:-$(default_part)}"
+        read_avb "$P" >&2 || exit 1
+        echo "$VBO"
+        ;;
+    relocate)
+        SRC="$1"; [ -n "$SRC" ] || die "usage: fp6-boot-avb relocate SRC [PART]"
+        P="${2:-$(default_part)}"
+        [ "${FP6_ALLOW_BOOT_WRITE:-0}" = 1 ] || die "refusing to write $P without FP6_ALLOW_BOOT_WRITE=1"
+        read_avb "$SRC" || die "source $SRC has no intact AVB footer + vbmeta"
+        SVBO=$VBO; SVBS=$VBS; SPS=$PS
+        PS="$(size_of "$P")"
+        [ "$SPS" = "$PS" ] || die "source is $SPS bytes but $P is $PS bytes"
+        NEW=$((PS - RESERVE))
+        [ $((SVBS + FOOTER)) -le $RESERVE ] || die "vbmeta ($SVBS bytes) doesn't fit in the reserved tail"
+        # Don't clobber a boot image that already extends into the tail
+        if [ "$(bytes_at "$P" 0 8)" = "ANDROID!" ]; then
+            end="$(bootimg_end "$P")" || die "can't parse the boot image header in $P"
+            [ "$end" -le "$NEW" ] || die "the boot image in $P extends to ~$end, past $NEW"
+        fi
+        echo "I: fp6-boot-avb: copying vbmeta ($SVBS bytes) from $SRC:$SVBO to $P:$NEW"
+        bytes_at "$SRC" "$SVBO" "$SVBS" |
+            dd of="$P" oflag=seek_bytes seek="$NEW" conv=notrunc,fsync bs=64K status=none
+        { bytes_at "$SRC" $((SPS - FOOTER)) 20; u64_bytes "$NEW"; bytes_at "$SRC" $((SPS - FOOTER + 28)) 36; } |
+            dd of="$P" oflag=seek_bytes seek=$((PS - FOOTER)) conv=notrunc,fsync bs=64 status=none
+        sync
+        read_avb "$P" || die "verification after writing failed"
+        [ "$VBO" = "$NEW" ] || die "footer points to $VBO, expected $NEW"
+        [ "$(bytes_at "$SRC" "$SVBO" "$SVBS" | sha256sum)" = "$(bytes_at "$P" "$VBO" "$VBS" | sha256sum)" ] ||
+            die "vbmeta read-back differs"
+        echo "I: fp6-boot-avb: done; boot images up to $VBO bytes fit in $P"
+        ;;
+    *)
+        sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+        exit 2
+        ;;
+esac

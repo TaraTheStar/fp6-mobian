@@ -1,0 +1,9 @@
+{{ define "main" }}
+{{- /* Long pages get a contents box under their title; short component notes don't need one. */ -}}
+{{- if ge (len (findRE `<h[23] ` .Content)) 5 -}}
+{{- $toc := printf `<details class="toc" open><summary>On this page</summary>%s</details>` .TableOfContents -}}
+{{ replace .Content "</h1>" (print "</h1>" $toc) 1 | safeHTML }}
+{{- else -}}
+{{ .Content }}
+{{- end }}
+{{ end }}

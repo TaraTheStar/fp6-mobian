@@ -1,0 +1,56 @@
+Source: imsd
+Section: net
+Priority: optional
+Maintainer: Tara <tarathestar@proton.me>
+Build-Depends: debhelper-compat (= 13),
+               cmake (>= 3.30),
+               ninja-build,
+               clang-22,
+               libc++-22-dev,
+               libc++abi-22-dev,
+               pkgconf,
+               libglib2.0-dev,
+Standards-Version: 4.7.2
+Homepage: https://forgejo.catcrafts.net/Catcrafts/imsd
+Rules-Requires-Root: no
+
+Package: imsd
+Architecture: linux-any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         iproute2,
+         libopencore-amrnb0,
+         libopencore-amrwb0,
+         libqmi-utils,
+         libvo-amrwbenc0,
+         modemmanager,
+         nftables,
+         pipewire-bin,
+         polkitd,
+Description: userspace IMS/VoLTE daemon for mainline Linux phones
+ imsd implements the IMS client (SIP registration over IPsec, calls with
+ AMR/AMR-WB media) in userspace for Qualcomm modems that do not run IMS
+ themselves on mainline Linux, such as the Fairphone (Gen. 6). It brings up
+ the ims PDN through ModemManager, reads the P-CSCF over QMI, installs its
+ security associations with `ip xfrm` and plays call audio through PipeWire.
+ .
+ Dialers reach it on the system bus as net.catcrafts.IMS1; see imsd-ofono
+ (GNOME Calls) and imsd-plasma (Plasma Dialer).
+
+Package: imsd-ofono
+Architecture: linux-any
+Depends: ${shlibs:Depends}, ${misc:Depends}, imsd (= ${binary:Version}), gnome-calls
+Conflicts: ofono
+Description: GNOME Calls backend for imsd (Phosh, GNOME Mobile)
+ imsd-ofonod presents imsd as an oFono modem on the system bus, the interface
+ GNOME Calls' ofono provider drives, and points GNOME Calls at that provider.
+ It cannot run alongside a real oFono.
+
+Package: imsd-plasma
+Architecture: linux-any
+Depends: ${shlibs:Depends}, ${misc:Depends}, imsd (= ${binary:Version})
+Enhances: plasma-dialer
+Description: Plasma Dialer backend for imsd (Plasma Mobile)
+ imsd-dialerd serves the org.kde.telephony.* session-bus interfaces Plasma
+ Dialer consumes, bridging them to imsd, in place of kde-telephony's
+ modem daemon.

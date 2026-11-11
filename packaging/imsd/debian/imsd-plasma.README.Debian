@@ -1,0 +1,13 @@
+imsd-plasma for Debian
+======================
+
+imsd-dialerd is started in the Plasma session in place of plasma-dialer's
+modem daemon, which must not run at the same time. Upstream hides that
+daemon's autostart entry for new accounts through /etc/skel; this package
+doesn't install files in /etc/skel, so each account hides it once:
+
+  mkdir -p ~/.config/autostart
+  printf '[Desktop Entry]\nHidden=true\n' \
+      > ~/.config/autostart/org.kde.modem.daemon.desktop
+
+Then log out and back in.

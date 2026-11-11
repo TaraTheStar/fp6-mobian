@@ -1,0 +1,4 @@
+usr/bin/imsd-ofonod
+usr/libexec/imsd-ofono-restart-calls.sh
+packaging/imsd-ofonod.service usr/lib/systemd/system/
+packaging/90_imsd-ofono.gschema.override usr/share/glib-2.0/schemas/

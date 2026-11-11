@@ -1,0 +1,43 @@
+From: Tara <tarathestar@proton.me>
+Subject: imsd-media: optional PipeWire target and channel for the call audio
+
+IMSD_PLAY_TARGET / IMSD_REC_TARGET (from the daemon's environment) are passed
+to pw-play / pw-record as --target, so a device can route calls through an
+echo-cancel sink/source pair without making it the default for every
+application. IMSD_PLAY_CHANNEL / IMSD_REC_CHANNEL are passed as --channel-map
+(e.g. FL: call audio only on the earpiece of a stereo speaker pair, and only
+the mic's channel of a stereo capture). Unset or empty: as before.
+
+Forwarded: not-yet
+---
+diff --git a/implementations/media.cpp b/implementations/media.cpp
+index 3d24966..7dc43d8 100644
+--- a/implementations/media.cpp
++++ b/implementations/media.cpp
+@@ -477,8 +477,25 @@ Child SpawnPw(bool play, bool toChild, int rate) {
+     const char* tool = play ? "pw-play" : "pw-record";
+     const char* lat = play ? "40ms" : "20ms";
+     std::string rateStr = std::to_string(rate);
+-    for (const char* a : {tool, "--raw", "--rate", rateStr.c_str(), "--channels", "1", "--format", "s16", "--latency", lat, "-"})
++    for (const char* a : {tool, "--raw", "--rate", rateStr.c_str(), "--channels", "1", "--format", "s16", "--latency", lat})
+         argv.emplace_back(a);
++    // Optional routing of the call audio, from the daemon's
++    // environment. IMSD_PLAY_TARGET / IMSD_REC_TARGET name the PipeWire node
++    // it goes to / comes from (e.g. an echo-cancel sink/source pair) without
++    // making that every application's default. IMSD_PLAY_CHANNEL /
++    // IMSD_REC_CHANNEL give the one channel position of the mono stream
++    // (e.g. FL: only the earpiece of a stereo speaker pair, only the mic's
++    // channel of a stereo capture); unset = MONO, mixed to/from all channels.
++    // Unset or empty: as before.
++    if (const char* t = std::getenv(play ? "IMSD_PLAY_TARGET" : "IMSD_REC_TARGET"); t && *t) {
++        argv.emplace_back("--target");
++        argv.emplace_back(t);
++    }
++    if (const char* c = std::getenv(play ? "IMSD_PLAY_CHANNEL" : "IMSD_REC_CHANNEL"); c && *c) {
++        argv.emplace_back("--channel-map");
++        argv.emplace_back(c);
++    }
++    argv.emplace_back("-");
+     pid_t pid = fork();
+     if (pid == 0) {
+         if (toChild) { dup2(pipefd[0], STDIN_FILENO); }

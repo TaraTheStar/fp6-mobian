@@ -1,0 +1,21 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: imsd
+Upstream-Contact: Catcrafts <https://catcrafts.net/>
+Source: https://forgejo.catcrafts.net/Catcrafts/imsd
+
+Files: *
+Copyright: 2026 Catcrafts®
+License: GPL-3.0-only
+
+Files: debian/*
+Copyright: 2026 Tara <tarathestar@proton.me>
+License: GPL-3.0-only
+Comment: Includes the CMake build added by debian/patches/0001.
+
+License: GPL-3.0-only
+ This program is free software: you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by the Free
+ Software Foundation, version 3.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 3 can be found in "/usr/share/common-licenses/GPL-3".

@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+# The guard replaces qcom-phone-utils' zz-qcom-bootimg; the original stays
+# available to it as zz-qcom-bootimg.distrib, which it calls off the phone.
+# The guard itself is a symlink in /etc, not a conffile: a conffile left
+# behind on remove would block renaming the original back.
+if [ "$1" = install ] || [ "$1" = upgrade ]; then
+    mkdir -p /usr/lib/fp6-mobian-support
+    dpkg-divert --package fp6-mobian-support --add --rename \
+        --divert /usr/lib/fp6-mobian-support/zz-qcom-bootimg.distrib \
+        /etc/kernel/postinst.d/zz-qcom-bootimg
+fi
+
+#DEBHELPER#

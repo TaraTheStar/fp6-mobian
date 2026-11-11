@@ -1,0 +1,45 @@
+#!/bin/sh
+# fp6-mobian-support: put the Fairphone (Gen. 6) firmware into the initramfs.
+# qcom-phone-utils' qcom-firmware hook has no FP6 case (it would look under
+# qcom/milos/fp6/, but the DT asks for qcom/milos/fairphone/fp6/), and remoteprocs
+# that probe from the initramfs don't retry a missing firmware later.
+# Missing files are skipped (droid-juicer only extracts them on first boot).
+set -e
+
+PREREQS=""
+case $1 in
+    prereqs) echo "${PREREQS}"; exit 0;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+
+# Touchscreen for the unl0kr passphrase prompt (encrypted root): the
+# EPH8621 sits on spi0 (GENI SPI, GPI DMA). Unconditional: this hook also
+# runs in the image build chroot, where /proc/cmdline is the build host's.
+manual_add_modules eswin_eph8621 spi-geni-qcom gpi
+
+D=qcom/milos/fairphone/fp6
+# NOT modem.mbn: it is 112 MB (~51 MB compressed) and the boot image must fit in
+# the 96 MiB boot partition (minus the AVB data at its end). Without it the modem
+# remoteproc fails to boot from the initramfs; fp6-remoteproc-start.service
+# starts it once the root filesystem (and /lib/firmware) is up.
+FW_LIST="
+    $D/adsp.mbn $D/adsp_dtb.mbn $D/adspr.jsn $D/adsps.jsn $D/adspua.jsn $D/battmgr.jsn
+    $D/cdsp.mbn $D/cdsp_dtb.mbn $D/cdspr.jsn
+    $D/modemr.jsn $D/wpss.mbn $D/ipa_fws.mbn
+    $D/gen80300_zap.mbn $D/vpu20_2v.mbn $D/aw88261_acf.bin
+    qcom/gen80300_gmu.bin qcom/gen80300_sqe.fw
+    qcom/milos/MILOS-Fairphone-Gen6-tplg.bin
+    qca/msbtfw12.mbn qca/msnv12.bin
+"
+
+for fwfile in ${FW_LIST}; do
+    if [ -f "/lib/firmware/updates/${version?}/${fwfile}" ] ||
+       [ -f "/lib/firmware/updates/${fwfile}" ]             ||
+       [ -f "/lib/firmware/${version}/${fwfile}" ]          ||
+       [ -f "/lib/firmware/${fwfile}" ]; then
+        add_firmware "${fwfile}"
+    else
+        echo "I: fp6-firmware: missing ${fwfile} (expected before droid-juicer has run)"
+    fi
+done

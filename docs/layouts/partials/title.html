@@ -1,0 +1,6 @@
+{{- /* A page's title is its first "# " heading, so the Markdown needs no front matter. */ -}}
+{{- $t := .Title -}}
+{{- with findRESubmatch `(?m)^# (.+)$` .RawContent 1 -}}
+  {{- $t = index (index . 0) 1 | markdownify | plainify -}}
+{{- end -}}
+{{- return $t -}}

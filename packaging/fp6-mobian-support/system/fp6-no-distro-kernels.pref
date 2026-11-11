@@ -1,0 +1,14 @@
+# fp6-mobian-support: the Fairphone (Gen. 6) boots only the milos kernel
+# (linux-image-*-milos, not in any archive yet). Keep Debian's and Mobian's
+# kernel images off this phone: zz-qcom-bootimg would otherwise be tempted to
+# pack one of them into boot_a. Remove this file only together with a kernel
+# that supports the FP6.
+Explanation: no Debian kernels on the FP6
+Package: linux-image-* linux-headers-* linux-kbuild-*
+Pin: release o=Debian
+Pin-Priority: -1
+
+Explanation: no Mobian kernels on the FP6
+Package: linux-image-* linux-headers-*
+Pin: release o=Mobian
+Pin-Priority: -1

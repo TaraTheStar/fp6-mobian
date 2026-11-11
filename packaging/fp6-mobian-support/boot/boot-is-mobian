@@ -1,0 +1,15 @@
+#!/bin/sh
+# fp6-mobian-support: does the active boot slot hold a Mobian boot image?
+# exit 0 = yes (its cmdline carries mobile.root=), 1 = no, 2 = can't tell.
+# Prints the boot partition path on stdout.
+SUFFIX=""
+if [ -e /dev/disk/by-partlabel/boot_a ]; then
+    SUFFIX="$(qbootctl -x 2>/dev/null || true)"
+    [ -n "$SUFFIX" ] || exit 2
+fi
+BOOTPART="/dev/disk/by-partlabel/boot${SUFFIX}"
+echo "$BOOTPART"
+[ -e "$BOOTPART" ] || exit 2
+# The cmdline lives in the first page for every boot image header version
+head -c 4096 "$BOOTPART" 2>/dev/null | tr -c '[:print:]' '\n' | grep -q 'mobile\.root=' && exit 0
+exit 1

@@ -1,0 +1,112 @@
+From 570ff593d88d60be572d4ff418eb6ad2aebc91fd Mon Sep 17 00:00:00 2001
+From: Tara <tarathestar@proton.me>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH 1/4] Update to 7.3
+
+---
+ debian/changelog | 13 ++++++++++---
+ debian/control   |  8 ++++----
+ debian/gbp.conf  |  4 ++--
+ debian/rules     |  2 +-
+ debian/watch     |  2 +-
+ debian/watch.in  |  2 +-
+ 6 files changed, 19 insertions(+), 12 deletions(-)
+
+diff --git a/debian/changelog b/debian/changelog
+index 05b71f8..2f9f047 100644
+--- a/debian/changelog
++++ b/debian/changelog
+@@ -1,5 +1,12 @@
+-linux-7.2-milos (7.2.11-1) unstable; urgency=medium
++linux-7.3-milos (7.3-1) UNRELEASED; urgency=medium
+ 
+-  * Initial 7.2 release
++  * Initial 7.3 release
++  * d/patches/milos: milos-mainline v7.3.0-milos.
++  * d/patches/catcrafts: Catcrafts' combined-stable, linearized
++    (microphone codec, cameras, sensors, NFC, suspend and qrtr fixes).
++  * d/config/milos.config: rewritten as a device delta on top of the
++    Debian and Mobian fragments.
++  * d/control: build-depend on openssl.
++  * d/rules: stop binary-arch at the first failing step.
+ 
+- -- Marco Mattiolo <marco.mattiolo@hotmail.it>  Tue, 20 Oct 2026 22:24:08 +0200
++ -- Tara <tarathestar@proton.me>  Wed, 11 Nov 2026 12:00:00 +0000
+diff --git a/debian/control b/debian/control
+index ccd946f..41f5163 100644
+--- a/debian/control
++++ b/debian/control
+@@ -1,4 +1,4 @@
+-Source: linux-7.2-milos
++Source: linux-7.3-milos
+ Section: kernel
+ Maintainer: Arnaud Ferraris <aferraris@debian.org>
+ Build-Depends:
+@@ -19,18 +19,18 @@ Homepage: https://salsa.debian.org/Mobian-team/devices/kernels/qcom-linux
+ Vcs-Git: https://salsa.debian.org/Mobian-team/devices/kernels/qcom-linux.git
+ Vcs-Browser: https://salsa.debian.org/Mobian-team/devices/kernels/qcom-linux
+ 
+-Package: linux-image-7.2-milos
++Package: linux-image-7.3-milos
+ Architecture: arm64
+ Depends:
+  initramfs-tools | linux-initramfs-tool,
+  kmod,
+  linux-base,
+ Provides: wireguard-modules (= 1.0.0)
+-Description: Linux 7.2 for milos devices
++Description: Linux 7.3 for milos devices
+  The linux kernel, modules and corresponding other files for
+  milos devices.
+ 
+-Package: linux-headers-7.2-milos
++Package: linux-headers-7.3-milos
+ Architecture: arm64
+ Description: Linux kernel headers for milos devices
+  This package provides kernel header files for the milos kernel.
+diff --git a/debian/gbp.conf b/debian/gbp.conf
+index 0f2be33..055149f 100644
+--- a/debian/gbp.conf
++++ b/debian/gbp.conf
+@@ -1,8 +1,8 @@
+ [DEFAULT]
+-debian-branch = mobian-milos-7.2
++debian-branch = mobian-milos-7.3
+ debian-tag = mobian/milos-%(version)s
+ upstream-tag = upstream/%(version)s
+-upstream-branch = linux-7.2.y
++upstream-branch = linux-7.3.y
+ upstream-vcs-tag = v%(version)s
+ pristine-tar = false
+ 
+diff --git a/debian/rules b/debian/rules
+index 6360a5d..f3f7d13 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -5,7 +5,7 @@ include /usr/share/dpkg/architecture.mk
+ 
+ srctree ?= .
+ 
+-KVER=7.2
++KVER=7.3
+ KVENDOR=milos
+ KREL=$(KVER)-$(KVENDOR)
+ 
+diff --git a/debian/watch b/debian/watch
+index 3cfdcb0..b86519c 100644
+--- a/debian/watch
++++ b/debian/watch
+@@ -1,3 +1,3 @@
+ version=4
+ opts="dversionmangle=s/\+milos$//," \
+-    https://www.kernel.org/pub/linux/kernel/v7.x/ linux-(7.2\.?\d*)@ARCHIVE_EXT@
++    https://www.kernel.org/pub/linux/kernel/v7.x/ linux-(7.3\.?\d*)@ARCHIVE_EXT@
+diff --git a/debian/watch.in b/debian/watch.in
+index c443319..62f6200 100644
+--- a/debian/watch.in
++++ b/debian/watch.in
+@@ -1,3 +1,3 @@
+ version=4
+ opts="dversionmangle=s/\+@KVENDOR@$//," \
+-    https://www.kernel.org/pub/linux/kernel/v6.x/ linux-(@KVER@\.?\d*)@ARCHIVE_EXT@
++    https://www.kernel.org/pub/linux/kernel/v7.x/ linux-(@KVER@\.?\d*)@ARCHIVE_EXT@

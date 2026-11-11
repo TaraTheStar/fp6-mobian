@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Cross-build environment for Mobian's qcom-linux kernel packaging (arm64 on amd64).
+# Mirrors the Build-Depends of debian/control.in plus the cross toolchain used by
+# the `cross` build profile in debian/rules.
+FROM docker.io/library/debian:forky-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      build-essential crossbuild-essential-arm64 dpkg-dev debhelper fakeroot \
+      bc bison flex cpio kmod rsync libssl-dev openssl libelf-dev dwarves python3 \
+      xz-utils zstd quilt \
+      rustc bindgen rust-src libclang-dev \
+ && rm -rf /var/lib/apt/lists/*
+# The linux-headers package builds scripts/sign-file for arm64, which needs
+# the arm64 OpenSSL headers.
+RUN dpkg --add-architecture arm64 \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends libssl-dev:arm64 \
+ && rm -rf /var/lib/apt/lists/*
+RUN useradd -m -u 1000 builder
+USER builder
+WORKDIR /build

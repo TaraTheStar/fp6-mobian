@@ -1,0 +1,28 @@
+--- a/fd0af81f83fba3b28c91df0a618ba165443568af.patch
++++ b/fd0af81f83fba3b28c91df0a618ba165443568af.patch
+@@ -23,10 +23,10 @@
+  1 file changed, 36 insertions(+)
+ 
+ diff --git a/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts b/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts
+-index 345e6a3ad9fd..dd4a12e51931 100644
++index 7d9da2448..6a878ad0e 100644
+ --- a/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts
+ +++ b/arch/arm64/boot/dts/qcom/milos-fairphone-fp6.dts
+-@@ -27,6 +27,34 @@
++@@ -27,6 +27,34 @@ aliases {
+  		serial1 = &uart11;
+  	};
+  
+@@ -61,9 +61,9 @@
+  	gpio-keys {
+  		compatible = "gpio-keys";
+  
+-@@ -1070,6 +1098,14 @@
+- 			       <13 1>, /* NC */
+- 			       <63 2>; /* WLAN UART */
++@@ -1175,6 +1203,14 @@ pd-pins {
++ 		};
++ 	};
+  
+ +	sensor_i2c_default: sensor-i2c-default-state {
+ +		/* SDA, SCL; external pull-ups to vreg_l10b */

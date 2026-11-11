@@ -1,0 +1,65 @@
+From: Tara <tarathestar@proton.me>
+Subject: imsd-media: stop the pw-* helpers with SIGTERM before SIGKILL
+
+As root the helpers run as `sudo -u <user> env ... pw-record`; SIGKILL to that
+pid only kills sudo (it cannot relay SIGKILL), which left pw-record running,
+orphaned, with the microphone open after every call. Send SIGTERM first
+(sudo relays it), SIGKILL only if the child is still there after 1 s.
+
+Forwarded: not-yet
+---
+diff --git a/implementations/media.cpp b/implementations/media.cpp
+index 7dc43d8..918506d 100644
+--- a/implementations/media.cpp
++++ b/implementations/media.cpp
+@@ -520,6 +520,22 @@ Child SpawnPw(bool play, bool toChild, int rate) {
+     return {pid, pipefd[0]};
+ }
+ 
++// Ends a SpawnPw child. As root the child is `sudo -u <user> env ... pw-*`,
++// and sudo cannot pass SIGKILL on: killing it that way left pw-record running,
++// orphaned, with the microphone open after every call.
++// SIGTERM first, which sudo relays to the tool; SIGKILL only if it is still
++// there after a second.
++void StopChild(pid_t pid) {
++    if (pid <= 0) return;
++    kill(pid, SIGTERM);
++    for (int i = 0; i < 20; i++) {
++        if (waitpid(pid, nullptr, WNOHANG) != 0) return;
++        usleep(50000);
++    }
++    kill(pid, SIGKILL);
++    waitpid(pid, nullptr, 0);
++}
++
+ bool ReadExact(int fd, std::uint8_t* buf, std::size_t n) {
+     std::size_t got = 0;
+     while (got < n) {
+@@ -962,10 +978,7 @@ int main(int argc, char** argv) {
+             }
+             st.micOn.store(false);
+             close(fd);
+-            if (pid > 0) {
+-                kill(pid, SIGKILL);
+-                waitpid(pid, nullptr, 0);
+-            }
++            StopChild(pid);
+         });
+     }
+ 
+@@ -1277,12 +1290,12 @@ int main(int argc, char** argv) {
+     if (playOn) {
+         close(playCh.fd);
+         int status;
++        bool gone = false;
+         for (int i = 0; i < 20; i++) {
+-            if (waitpid(playCh.pid, &status, WNOHANG) != 0) break;
++            if (waitpid(playCh.pid, &status, WNOHANG) != 0) { gone = true; break; }
+             usleep(100000);
+         }
+-        kill(playCh.pid, SIGKILL);
+-        waitpid(playCh.pid, nullptr, 0);
++        if (!gone) StopChild(playCh.pid);
+     }
+     close(sock);
+ 

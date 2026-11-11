@@ -1,0 +1,36 @@
+From 8d2568978966e5b104d19140c31f44458cb2ed09 Mon Sep 17 00:00:00 2001
+From: Tara <tarathestar@proton.me>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH 2/4] d/control: build-depend on openssl
+
+The certificate steps of the kernel build run openssl; without it the
+build fails in a clean chroot.
+---
+ debian/control    | 1 +
+ debian/control.in | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/debian/control b/debian/control
+index 41f5163..1246655 100644
+--- a/debian/control
++++ b/debian/control
+@@ -9,6 +9,7 @@ Build-Depends:
+  flex | flex:native,
+  kmod,
+  libssl-dev:native,
++ openssl:native,
+  rsync,
+ # Needed for Rust
+  rustc:native (>= 1.78.0),
+diff --git a/debian/control.in b/debian/control.in
+index d8f4366..0970c58 100644
+--- a/debian/control.in
++++ b/debian/control.in
+@@ -9,6 +9,7 @@ Build-Depends:
+  flex | flex:native,
+  kmod,
+  libssl-dev:native,
++ openssl:native,
+  rsync,
+ # Needed for Rust
+  rustc:native (>= 1.78.0),

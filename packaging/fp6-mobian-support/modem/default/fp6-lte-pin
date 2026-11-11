@@ -1,0 +1,4 @@
+# fp6-mobian-support: modes fp6-lte-pin.service keeps the modem on.
+# 4g = LTE only. On T-Mobile US, 5G SA has no SMS path and data stalls.
+# mmcli syntax ("3g|4g" etc); set it empty to stop pinning.
+FP6_ALLOWED_MODES=4g

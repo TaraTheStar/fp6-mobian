@@ -1,0 +1,13 @@
+#!/bin/sh
+# fp6-mobian-support: update-initramfs runs this after it (re)generated an
+# initramfs ($1 = kernel version, $2 = the initramfs). Mobian repacks the boot
+# image only on kernel installs (/etc/kernel/postinst.d/zz-qcom-bootimg), so an
+# initramfs rebuilt by a package trigger (udev, cryptsetup, unl0kr, firmware...)
+# would otherwise never reach boot_a. Same guard, same checks (Mobian image in
+# the slot, AVB intact, image fits, read-back, milos kernels only).
+[ -n "$1" ] || exit 0
+# Called from a kernel's postinst hooks: zz-qcom-bootimg runs right after
+# update-initramfs there, no need to write boot twice.
+[ -n "${DEB_MAINT_PARAMS:-}" ] && exit 0
+[ -x /etc/kernel/postinst.d/zz-qcom-bootimg ] || exit 0
+exec /etc/kernel/postinst.d/zz-qcom-bootimg "$1"

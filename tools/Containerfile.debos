@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# debos (fakemachine/KVM) plus what mobian-recipes' build.sh and the qcom
+# family need on the build side: tomlq (yq), img2simg (android-sdk-libsparse-utils),
+# bmaptool, xz, cryptsetup (encrypted-root builds, -c).
+FROM docker.io/godebos/debos:latest
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      yq android-sdk-libsparse-utils bmap-tools xz-utils cryptsetup-bin \
+ && rm -rf /var/lib/apt/lists/*

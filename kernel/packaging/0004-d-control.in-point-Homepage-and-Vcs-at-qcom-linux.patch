@@ -1,0 +1,28 @@
+From 5a2b543f50b73bbe2818e996e7284f0f93f94b48 Mon Sep 17 00:00:00 2001
+From: Tara <tarathestar@proton.me>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH 4/4] d/control.in: point Homepage and Vcs at qcom-linux
+
+The milos packaging lives in qcom-linux; there is no milos-linux
+repository. debian/control already says so.
+---
+ debian/control.in | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/debian/control.in b/debian/control.in
+index 0970c58..ec9b57f 100644
+--- a/debian/control.in
++++ b/debian/control.in
+@@ -16,9 +16,9 @@ Build-Depends:
+  bindgen:native (>= 0.65.1),
+  rust-src (>= 1.78.0)
+ Standards-Version: 4.7.3
+-Homepage: https://salsa.debian.org/Mobian-team/devices/kernels/@KVENDOR@-linux
+-Vcs-Git: https://salsa.debian.org/Mobian-team/devices/kernels/@KVENDOR@-linux.git
+-Vcs-Browser: https://salsa.debian.org/Mobian-team/devices/kernels/@KVENDOR@-linux
++Homepage: https://salsa.debian.org/Mobian-team/devices/kernels/qcom-linux
++Vcs-Git: https://salsa.debian.org/Mobian-team/devices/kernels/qcom-linux.git
++Vcs-Browser: https://salsa.debian.org/Mobian-team/devices/kernels/qcom-linux
+ 
+ Package: linux-image-@KREL@
+ Architecture: arm64

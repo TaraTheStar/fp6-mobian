@@ -1,0 +1,16 @@
+# fp6-mobian-support
+[Unit]
+Description=Keep the Fairphone (Gen. 6) modem on LTE (5G SA: no SMS, data stalls)
+After=ModemManager.service
+PartOf=ModemManager.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/fp6-lte-pin
+ExecStart=/usr/lib/fp6-mobian-support/fp6-lte-pin
+RuntimeDirectory=fp6-lte-pin
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=ModemManager.service

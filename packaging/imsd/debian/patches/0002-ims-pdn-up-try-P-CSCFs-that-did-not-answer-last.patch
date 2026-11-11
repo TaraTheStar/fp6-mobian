@@ -1,0 +1,118 @@
+From: Tara <tarathestar@proton.me>
+Subject: ims-pdn-up: try P-CSCFs that did not answer last
+
+A network's PCO may put first a P-CSCF that never answers the unprotected
+REGISTER, in every list it hands out (seen on T-Mobile US). imsd registers to
+the first address of PCSCF_DISCOVERED= and exits 1 for the unit's restart,
+which brought up the same list and tried the same address again, forever.
+
+imsd.service now runs `ims-pdn-up.sh --stopped` as ExecStopPost=. When the
+main process exited non-zero after a fresh registration to a discovered
+P-CSCF, that address is recorded in /var/lib/imsd/pcscf-bad (sequence
+numbers, not times: the clock may be wrong early in a boot; last 16 kept).
+Each bring-up orders the discovered list: unrecorded addresses first in PCO
+order, then the recorded ones, least recently failed first, so a list where
+everything fails still cycles. PCSCF= set by the admin is never recorded.
+
+RestartSec stays at 120 s: a quicker retry gets the next fresh REGISTER
+refused with 401, which puts imsd's registration recovery into a long hold.
+
+Forwarded: not-yet
+---
+diff --git a/packaging/ims-pdn-up.sh b/packaging/ims-pdn-up.sh
+index dafc4d9..2b070e8 100644
+--- a/packaging/ims-pdn-up.sh
++++ b/packaging/ims-pdn-up.sh
+@@ -40,6 +40,43 @@
+ 
+ log() { echo "ims-pdn-up: $*"; }
+ 
++# ---- P-CSCFs that did not answer go to the back of the list.
++# A network's PCO may put first a P-CSCF that never answers the unprotected
++# REGISTER, in every list it hands out. The daemon registers to the first
++# address of PCSCF_DISCOVERED= and exits 1 for the unit's restart, which would
++# bring up the same list and try the same address again, forever.
++#
++# imsd.service runs this script with --stopped as ExecStopPost=. When the
++# daemon itself exited non-zero after a fresh registration to a discovered
++# P-CSCF, that address is recorded in $BAD_STATE with a sequence number. Every
++# bring-up then orders the discovered list: the addresses not recorded first
++# (in PCO order), then the recorded ones, the least recently failed first, so
++# a whole list of failures still cycles. Nothing is ever dropped. Sequence
++# numbers rather than times: the clock may still be wrong this early in a
++# boot. The file keeps the last 16 failures and survives reboots
++# (StateDirectory=imsd). PCSCF= (set by the admin) is never recorded.
++BAD_STATE=${IMSD_PCSCF_BAD_STATE:-/var/lib/imsd/pcscf-bad}
++BAD_KEEP=16
++if [ "${1:-}" = --stopped ]; then
++    # EXIT_CODE/EXIT_STATUS are the main process's: unset when it never ran
++    # (this script failing as ExecStartPre= records nothing)
++    if [ "${EXIT_CODE:-}" = exited ] && [ "${EXIT_STATUS:-0}" != 0 ]; then
++        RUNENV=${IMSD_RUN_ENV:-/run/imsd.env}
++        if [ "$(sed -n 's/^PCSCF_DISCOVERY=//p' "$RUNENV" 2>/dev/null)" = found ]; then
++            USED=$(sed -n 's/^PCSCF_DISCOVERED=//p' "$RUNENV" | cut -d, -f1)
++            if [ -n "$USED" ]; then
++                mkdir -p "${BAD_STATE%/*}" 2>/dev/null
++                SEQ=$(awk '$2 ~ /^[0-9]+$/ && $2 > m {m = $2} END {print m + 1}' "$BAD_STATE" 2>/dev/null)
++                { awk -v a="$USED" 'NF == 2 && $1 != a && $2 ~ /^[0-9]+$/' "$BAD_STATE" 2>/dev/null
++                  echo "$USED ${SEQ:-1}"; } | sort -k2,2n | tail -n "$BAD_KEEP" > "$BAD_STATE.new" &&
++                    mv "$BAD_STATE.new" "$BAD_STATE" &&
++                    log "imsd exited with status $EXIT_STATUS: P-CSCF $USED goes to the back of the list from now on"
++            fi
++        fi
++    fi
++    exit 0
++fi
++
+ kv() { mmcli "$@" -K 2>/dev/null; }
+ 
+ # mmcli's multi-line error text as one journal-friendly line
+@@ -427,6 +464,27 @@ route_pcscf() {  # $1 = address
+         { log "host route to P-CSCF $1 failed: $(squash "$OUT")"; exit 1; }
+     log "host route to P-CSCF $1 dev $IFACE"
+ }
++# V6 (space-separated) and DISCOVERED (comma-separated): the discovered list
++# in PCO order. Moves the addresses recorded in $BAD_STATE to the back, the
++# least recently failed first (see --stopped at the top).
++order_pcscf() {
++    [ -s "$BAD_STATE" ] || return 0
++    o_good=; o_bad=; o_n=0
++    for o_a in $V6; do
++        o_seq=$(awk -v a="$o_a" '$1 == a {print $2}' "$BAD_STATE")
++        if [ -n "$o_seq" ]; then
++            o_bad="$o_bad$o_seq $o_a
++"
++        else
++            o_good="${o_good:+$o_good }$o_a"
++        fi
++    done
++    [ -n "$o_bad" ] || return 0
++    o_late=$(printf '%s' "$o_bad" | sort -k1,1n | awk '{print $2}' | tr '\n' ' ')
++    V6=$(echo $o_good $o_late)
++    DISCOVERED=$(printf '%s' "$V6" | tr ' ' ',')
++    log "P-CSCF order: $(echo $o_late | sed 's/ /, /g') did not answer before, so last; trying ${V6%% *} first"
++}
+ PCSCF=${PCSCF:-$(envval PCSCF)}
+ DISCOVERED=
+ DISCOVERY=skipped
+@@ -458,6 +516,7 @@ EOF
+                 if [ -n "$V6" ]; then
+                     DISCOVERY=found
+                     log "P-CSCF discovered: $SHOWN${FLAGS:+ ($FLAGS)}"
++                    order_pcscf
+                     [ -n "$OTHER" ] && log "P-CSCF discovery also gave $OTHER (not usable on the IPv6-only ims PDN)"
+                     route_pcscf "${V6%% *}"   # the first: the daemon's fresh target; imsd routes the P-CSCF it uses itself as well (the fresh target, the resumed peer)
+                 else
+diff --git a/packaging/imsd.service b/packaging/imsd.service
+index e02aa7f..bdc2043 100644
+--- a/packaging/imsd.service
++++ b/packaging/imsd.service
+@@ -32,6 +32,8 @@ EnvironmentFile=-/etc/imsd.env
+ # registration state (imsreg.state) + media stats live here
+ StateDirectory=imsd
+ ExecStart=/usr/bin/imsd
++# a P-CSCF a failed run registered to goes to the back of later lists
++ExecStopPost=-/usr/libexec/ims-pdn-up.sh --stopped
+ # registration: resume an existing SA when possible (avoids fresh-SA
+ # throttles); a failed bring-up exits nonzero and systemd retries, as does
+ # a registered imsd whose PDN address left the netdev

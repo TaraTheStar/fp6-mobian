@@ -1,0 +1,50 @@
+From 177af015bc2146dae39e7abcbd26f8e33e180710 Mon Sep 17 00:00:00 2001
+From: Tara <tarathestar@proton.me>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH 3/4] qcom: add milos (Fairphone (Gen. 6))
+
+Boot image parameters as for sc7280, which the FP5 uses. Needs a milos
+kernel in the archive before it can build.
+---
+ build.sh                        |  2 +-
+ devices/qcom/configs/milos.toml | 18 ++++++++++++++++++
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+ create mode 100644 devices/qcom/configs/milos.toml
+
+diff --git a/build.sh b/build.sh
+index 9c36cad..22739ad 100755
+--- a/build.sh
++++ b/build.sh
+@@ -85,7 +85,7 @@ case "${device}" in
+     family="librem5"
+     ARGS="${ARGS} -t nonfree:true"
+     ;;
+-  "sdm845"|"sdm670"|"sm6350"|"sc7280"|"sm7150"|"qcom-wip" )
++  "sdm845"|"sdm670"|"sm6350"|"sc7280"|"sm7150"|"milos"|"qcom-wip" )
+     if [ "${device}" = "qcom-wip" ]; then
+       device="wip"
+     fi
+diff --git a/devices/qcom/configs/milos.toml b/devices/qcom/configs/milos.toml
+new file mode 100644
+index 0000000..30d015a
+--- /dev/null
++++ b/devices/qcom/configs/milos.toml
+@@ -0,0 +1,18 @@
++chipset = "milos"
++
++[bootimg]
++version = 2
++base = 0x0
++kernel = 0x8000
++ramdisk = 0x1000000
++dtb = 0x01f00000
++second = 0
++tags = 0x100
++pagesize = 4096
++
++[[device]]
++vendor = "fairphone"
++model = "fp6"
++# postmarketOS passes these for the FP6; whether its bootloader needs them is
++# untested, so they stay until someone shows it doesn't.
++mkbootimg_args = "--os_version 99.87.36 --os_patch_level 2099-12-31"

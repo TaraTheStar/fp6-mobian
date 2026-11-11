@@ -1,0 +1,24 @@
+From 22bbc45b64f5d5a89f00d3aac8474d64546823f6 Mon Sep 17 00:00:00 2001
+From: Tara <tarathestar@proton.me>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH 3/4] d/rules: stop binary-arch at the first failing step
+
+The loop runs in one shell, so a failing step was ignored and the
+remaining steps still built packages.
+---
+ debian/rules | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/debian/rules b/debian/rules
+index f3f7d13..47ad46d 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -54,7 +54,7 @@ binary-indep:
+ build-indep:
+ 
+ binary-arch: $(GENERATED_FILES) build-arch
+-	for package in $(shell dh_listpackages); do \
++	set -e; for package in $(shell dh_listpackages); do \
+ 		dh_prep -p$$package; \
+ 		$(BUILD) -f $(srctree)/Makefile run-command \
+ 		         KBUILD_RUN_COMMAND="$(srctree)/scripts/package/builddeb $$package"; \

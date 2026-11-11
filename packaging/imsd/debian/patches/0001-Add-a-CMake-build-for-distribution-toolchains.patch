@@ -1,0 +1,160 @@
+From: Tara <tarathestar@proton.me>
+Subject: Add a CMake build for distribution toolchains
+
+imsd builds with Crafter.Build (project.cpp), which ships as a Flatpak with
+its own clang/libc++. Distributions must build with their own toolchain and
+without network access, so add a CMake build that mirrors project.cpp:
+imsd-core and imsd-bus as module libraries, the five executables and the
+eight test suites. `import std` is provided by building libc++'s std.cppm as
+an ordinary module library (found through libc++.modules.json), so CMake's
+experimental `import std` gate is not needed. The house lint rules
+(Crafter.LintRules, fetched at build time by project.cpp) are not run.
+
+Forwarded: not-yet
+---
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+new file mode 100644
+index 0000000..8aa62f8
+--- /dev/null
++++ b/CMakeLists.txt
+@@ -0,0 +1,140 @@
++# SPDX-License-Identifier: GPL-3.0-only
++# CMake build for imsd using a distribution toolchain (clang + libc++ with
++# `import std`), as an alternative to Crafter.Build's project.cpp.
++# Mirrors project.cpp: imsd-core (Imsd module, GLib-free), imsd-bus (ImsdBus,
++# GLib), five executables and eight unit-test suites. The house lint rules
++# (Crafter.LintRules) are not part of this build.
++cmake_minimum_required(VERSION 3.30)
++
++# `import std`: by default the std module is built here as an ordinary
++# module library from the standard library's own module manifest
++# (libc++.modules.json), so no experimental CMake gate is needed. Set
++# IMSD_CMAKE_IMPORT_STD=ON (plus CMAKE_EXPERIMENTAL_CXX_IMPORT_STD=<gate>) to
++# use CMake's experimental support instead.
++option(IMSD_CMAKE_IMPORT_STD "Use CMake's experimental import std support" OFF)
++
++project(imsd VERSION 1.1.0 LANGUAGES CXX)
++
++set(CMAKE_CXX_STANDARD 26)
++set(CMAKE_CXX_STANDARD_REQUIRED ON)
++set(CMAKE_CXX_EXTENSIONS OFF)
++set(CMAKE_CXX_SCAN_FOR_MODULES ON)
++
++include(GNUInstallDirs)
++find_package(PkgConfig REQUIRED)
++find_package(Threads REQUIRED)
++pkg_check_modules(GIO REQUIRED gio-2.0)
++# Only the include paths and libraries from pkg-config: its -pthread compile
++# flag would not match the shared std module (std.pcm) and clang refuses to
++# load it (-Wmodule-file-config-mismatch). Same reasoning as project.cpp.
++add_library(imsd-gio INTERFACE)
++target_include_directories(imsd-gio SYSTEM INTERFACE ${GIO_INCLUDE_DIRS})
++target_link_libraries(imsd-gio INTERFACE ${GIO_LINK_LIBRARIES})
++
++add_compile_options(-Wno-reserved-identifier -Wno-reserved-module-identifier)
++
++add_library(imsd-std INTERFACE)
++if(IMSD_CMAKE_IMPORT_STD)
++  set(CMAKE_CXX_MODULE_STD ON)
++else()
++  set(IMSD_LIBCXX_MODULES_JSON "" CACHE FILEPATH "libc++.modules.json (default: ask the compiler)")
++  if(NOT IMSD_LIBCXX_MODULES_JSON)
++    separate_arguments(_imsd_cxxflags UNIX_COMMAND "${CMAKE_CXX_FLAGS}")
++    execute_process(COMMAND ${CMAKE_CXX_COMPILER} ${_imsd_cxxflags} -print-file-name=libc++.modules.json
++                    OUTPUT_VARIABLE IMSD_LIBCXX_MODULES_JSON OUTPUT_STRIP_TRAILING_WHITESPACE)
++  endif()
++  if(NOT EXISTS "${IMSD_LIBCXX_MODULES_JSON}")
++    message(FATAL_ERROR "libc++.modules.json not found (got '${IMSD_LIBCXX_MODULES_JSON}'); "
++                        "use clang with -stdlib=libc++ or set IMSD_LIBCXX_MODULES_JSON")
++  endif()
++  # Distributions install it through a symlink; its paths are relative to the real file
++  file(REAL_PATH "${IMSD_LIBCXX_MODULES_JSON}" _imsd_json)
++  get_filename_component(_imsd_json_dir "${_imsd_json}" DIRECTORY)
++  file(READ "${_imsd_json}" _imsd_manifest)
++  string(JSON _imsd_count LENGTH "${_imsd_manifest}" modules)
++  math(EXPR _imsd_last "${_imsd_count} - 1")
++  foreach(i RANGE ${_imsd_last})
++    string(JSON _name GET "${_imsd_manifest}" modules ${i} logical-name)
++    if(_name STREQUAL "std")
++      string(JSON _src GET "${_imsd_manifest}" modules ${i} source-path)
++      string(JSON _inc GET "${_imsd_manifest}" modules ${i} local-arguments system-include-directories 0)
++      file(REAL_PATH "${_src}" IMSD_STD_CPPM BASE_DIRECTORY "${_imsd_json_dir}")
++      file(REAL_PATH "${_inc}" IMSD_STD_INCDIR BASE_DIRECTORY "${_imsd_json_dir}")
++    endif()
++  endforeach()
++  if(NOT EXISTS "${IMSD_STD_CPPM}")
++    # Debian's llvm-toolchain installs a *copy* of the manifest in the
++    # multiarch libdir whose relative paths only resolve from the LLVM
++    # libdir; retry with the manifest of the compiler's own installation.
++    file(REAL_PATH "${CMAKE_CXX_COMPILER}" _imsd_cxx)
++    get_filename_component(_imsd_json_dir "${_imsd_cxx}" DIRECTORY)
++    get_filename_component(_imsd_json_dir "${_imsd_json_dir}/../lib" ABSOLUTE)
++    file(READ "${_imsd_json_dir}/libc++.modules.json" _imsd_manifest)
++    foreach(i RANGE ${_imsd_last})
++      string(JSON _name GET "${_imsd_manifest}" modules ${i} logical-name)
++      if(_name STREQUAL "std")
++        string(JSON _src GET "${_imsd_manifest}" modules ${i} source-path)
++        string(JSON _inc GET "${_imsd_manifest}" modules ${i} local-arguments system-include-directories 0)
++        file(REAL_PATH "${_src}" IMSD_STD_CPPM BASE_DIRECTORY "${_imsd_json_dir}")
++        file(REAL_PATH "${_inc}" IMSD_STD_INCDIR BASE_DIRECTORY "${_imsd_json_dir}")
++      endif()
++    endforeach()
++  endif()
++  if(NOT EXISTS "${IMSD_STD_CPPM}")
++    message(FATAL_ERROR "std module source not found (manifest ${_imsd_json})")
++  endif()
++  message(STATUS "std module: ${IMSD_STD_CPPM}")
++  add_library(imsd-std-module STATIC)
++  target_sources(imsd-std-module PUBLIC FILE_SET CXX_MODULES BASE_DIRS "${IMSD_STD_INCDIR}" FILES "${IMSD_STD_CPPM}")
++  target_include_directories(imsd-std-module SYSTEM PRIVATE "${IMSD_STD_INCDIR}")
++  target_link_libraries(imsd-std INTERFACE imsd-std-module)
++endif()
++
++# imsd-core: the engine, pure C++ modules
++add_library(imsd-core STATIC)
++target_link_libraries(imsd-core PUBLIC imsd-std)
++target_sources(imsd-core PUBLIC FILE_SET CXX_MODULES FILES
++  interfaces/Imsd.cppm
++  interfaces/Imsd-Util.cppm
++  interfaces/Imsd-Aka.cppm
++  interfaces/Imsd-Ipsec.cppm
++  interfaces/Imsd-Qmi.cppm
++  interfaces/Imsd-Sip.cppm
++  interfaces/Imsd-Sdp.cppm
++  interfaces/Imsd-Messages.cppm
++  interfaces/Imsd-Engine.cppm)
++
++# imsd-bus: the polkit gate in front of call control (GLib)
++add_library(imsd-bus STATIC)
++target_sources(imsd-bus PUBLIC FILE_SET CXX_MODULES FILES interfaces/ImsdBus.cppm)
++target_link_libraries(imsd-bus PUBLIC imsd-std imsd-gio)
++
++add_executable(imsd implementations/main.cpp)
++target_link_libraries(imsd PRIVATE imsd-core imsd-bus imsd-gio Threads::Threads)
++
++add_executable(imsd-media implementations/media.cpp)
++target_link_libraries(imsd-media PRIVATE imsd-std ${CMAKE_DL_LIBS} Threads::Threads)
++
++add_executable(imsd-dialerd implementations/dialerd.cpp)
++target_link_libraries(imsd-dialerd PRIVATE imsd-std imsd-gio)
++
++add_executable(imsd-ofonod implementations/ofonod.cpp)
++target_link_libraries(imsd-ofonod PRIVATE imsd-bus imsd-gio)
++
++add_executable(imsd-pcscf implementations/pcscf.cpp)
++target_link_libraries(imsd-pcscf PRIVATE imsd-core)
++
++include(CTest)
++if(BUILD_TESTING)
++  foreach(t Util Aka Ipsec Qmi Messages Engine Sip Sdp)
++    add_executable(imsd-test-${t} tests/${t}/main.cpp)
++    target_link_libraries(imsd-test-${t} PRIVATE imsd-core)
++    add_test(NAME ${t} COMMAND imsd-test-${t})
++  endforeach()
++endif()
++
++# Install layout follows packaging/APKBUILD.binary
++install(TARGETS imsd imsd-dialerd imsd-ofonod RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
++install(TARGETS imsd-media imsd-pcscf RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})
++install(PROGRAMS packaging/ims-pdn-up.sh packaging/imsd-handover.sh packaging/imsd-ofono-restart-calls.sh
++        DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})

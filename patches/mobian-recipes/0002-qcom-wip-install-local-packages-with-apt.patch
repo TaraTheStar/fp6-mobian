@@ -1,0 +1,26 @@
+From 994f2d6e00d8fe72b4bfe3c86b6a94bc3c7fd2ec Mon Sep 17 00:00:00 2001
+From: Tara <tarathestar@proton.me>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH 2/4] qcom-wip: install local packages with apt
+
+dpkg -i fails when a local package depends on something that isn't in the
+image yet; apt-get install pulls those dependencies in.
+---
+ devices/qcom/packages-base.yaml | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/devices/qcom/packages-base.yaml b/devices/qcom/packages-base.yaml
+index 44637e1..6192998 100644
+--- a/devices/qcom/packages-base.yaml
++++ b/devices/qcom/packages-base.yaml
+@@ -29,7 +29,9 @@ actions:
+   - action: run
+     chroot: true
+     description: Install additional packages
+-    command: dpkg -i /srv/*.deb
++    # apt instead of dpkg -i: the local debs may depend on packages that
++    # aren't in the image yet
++    command: DEBIAN_FRONTEND=noninteractive apt-get install -y /srv/*.deb && rm -f /srv/*.deb
+ 
+   - action: overlay
+     description: Add droid-juicer configuration to image

@@ -1,0 +1,108 @@
+From 2e424809d9af521678aa353b23c4240b782a4c69 Mon Sep 17 00:00:00 2001
+From: Tara <tarathestar@proton.me>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH 4/4] qcom-wip: Fairphone (Gen. 6) with local packages
+
+For building an FP6 image before a milos kernel is in the archive. The
+console= append keeps the kernel log on the panel during bring-up.
+Not meant for upstream.
+---
+ build-fp6.sh                  | 19 ++++++++++++
+ devices/qcom/configs/wip.toml | 58 ++++++++++++-----------------------
+ 2 files changed, 38 insertions(+), 39 deletions(-)
+ create mode 100755 build-fp6.sh
+
+diff --git a/build-fp6.sh b/build-fp6.sh
+new file mode 100755
+index 0000000..12c7154
+--- /dev/null
++++ b/build-fp6.sh
+@@ -0,0 +1,19 @@
++#!/bin/sh
++# Fairphone (Gen. 6) image through the qcom-wip target, from locally built
++# packages:
++#   devices/qcom/packages/*.deb                 linux-image-*-milos, fp6-mobian-support,
++#                                               optionally imsd + imsd-ofono
++#   devices/qcom/droid-juicer/fairphone,fp6.toml  first-boot firmware extraction
++#
++# SSH (-s) is on, so overlays/ssh/authorized_keys must exist.
++# Extra arguments go to build.sh (e.g. -c for an encrypted root, -e plasma-mobile).
++set -e
++cd "$(dirname "$0")"
++[ -f overlays/ssh/authorized_keys ] || {
++    echo "overlays/ssh/authorized_keys missing: add the public key to log in with"; exit 1; }
++for f in devices/qcom/packages/linux-image-*-milos_*_arm64.deb \
++         devices/qcom/packages/fp6-mobian-support_*_all.deb \
++         devices/qcom/droid-juicer/fairphone,fp6.toml; do
++    [ -f "$f" ] || { echo "missing $f"; exit 1; }
++done
++exec ./build.sh -t qcom-wip -e phosh -s -H fp6-mobian "$@"
+diff --git a/devices/qcom/configs/wip.toml b/devices/qcom/configs/wip.toml
+index 339cc6e..c6a1ba1 100644
+--- a/devices/qcom/configs/wip.toml
++++ b/devices/qcom/configs/wip.toml
+@@ -1,45 +1,25 @@
+-# This file is to be filled in with the appropriate parameters for your device
+-# It is used both to identify the device-tree file name and to construct the
+-# boot image.
++# Fairphone (Gen. 6), Qualcomm Milos (SM7635), through the `qcom-wip` target
++# with locally built packages. Values from postmarketOS' device-fairphone-fp6;
++# same layout as sc7280.toml (FP5). DTB: qcom/milos-fairphone-fp6.dtb
+ 
+-# The chipset reference as used as the first part of the device-tree file name
+-# (e.g. "sdm845")
+-chipset = ""
++chipset = "milos"
+ 
+-# Boot image parameters: load addresses and block device sector size
+-# Those parameters can be extracted from an existing boot image by
+-# running `abootimg -i <image>`, for example
+ [bootimg]
++version = 2
+ base = 0x0
+-kernel = 0x0
+-ramdisk = 0x0
+-second = 0x0
+-tags = 0x0
+-pagesize = 0
+-# OPTIONAL: uncomment if the device needs to use a v2 format bootimg, which
+-# embeds a separate copy of the DTB (not relying on the one appended to the
+-# kernel image)
+-# version = 2
+-# dtb = 0x0
++kernel = 0x8000
++ramdisk = 0x1000000
++dtb = 0x01f00000
++second = 0
++tags = 0x100
++pagesize = 4096
+ 
+-# Device-specific parameters: those are mostly used to identify the device, and
+-# especially the device-tree file to use, which is constructed this way:
+-#   qcom/<chipset>-<vendor>-<model>[-<variant>].dtb
+-#
+-# It is also possible to set additional cmdline parameters using the "append"
+-# entry, in case kernel-level quirks are needed which have corresponding cmdline
+-# options
+ [[device]]
+-vendor = ""
+-model = ""
+-# OPTIONAL: uncomment if this device uses a different SoC than the one mentioned
+-# in the top-level `chipset` variable (or if this top-level variable is missing)
+-# chipset = ""
+-# OPTIONAL: uncomment if there are several variants of the same model needing
+-# different device-tree files (e.q. "xiaomi-beryllium" has variants "ebbg" and
+-# "tianma")
+-# variant = ""
+-# OPTIONAL: uncomment if additional cmdline parameters are needed
+-# append = ""
+-# OPTIONAL: uncomment if device uses different bootimg parameters
+-# bootimg = {version = 2, base = 0x0, kernel = 0x0, ramdisk = 0x0, dtb = 0x0, second = 0x0, tags = 0x0, pagesize = 4096 }
++vendor = "fairphone"
++model = "fp6"
++# First-boot debugging: kernel log on the panel, no plymouth splash on top of it.
++# (Any "console=" also switches bootloader.sh from "quiet" to loglevel=7.)
++append = "console=tty0 plymouth.enable=0"
++# postmarketOS passes these for the FP6; whether its bootloader needs them is
++# untested, so they stay until someone shows it doesn't.
++mkbootimg_args = "--os_version 99.87.36 --os_patch_level 2099-12-31"

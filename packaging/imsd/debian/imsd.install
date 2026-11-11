@@ -1,0 +1,8 @@
+usr/bin/imsd
+usr/libexec/imsd-media
+usr/libexec/imsd-pcscf
+usr/libexec/ims-pdn-up.sh
+usr/libexec/imsd-handover.sh
+packaging/imsd.service usr/lib/systemd/system/
+packaging/net.catcrafts.IMS1.conf usr/share/dbus-1/system.d/
+packaging/net.catcrafts.IMS1.policy usr/share/polkit-1/actions/

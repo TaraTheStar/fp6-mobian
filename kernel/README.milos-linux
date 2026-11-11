@@ -1,0 +1,43 @@
+Patches origin
+--------------
+
+Base: Linux v7.3 (kernel.org linux-7.3.tar.xz, sha256
+87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953, matches
+kernel.org sha256sums.asc; signature of that file not checked).
+
+For out-of-tree device support, patches were imported from the following
+community-maintained kernel forks:
+  * milos:     https://github.com/milos-mainline/linux
+               tag v7.3.0-milos (939a2ad25846b29eb6c33a69aa47f41ce1b2f4fc)
+               40 commits on v7.3; 8 are empty "-------------" separators and
+               are not carried, leaving 32 patches.
+  * catcrafts: https://forgejo.catcrafts.net/Catcrafts/milos-linux
+               branch combined-stable @ 27825d9fdbd75e7281e74b44149c8c19da129793
+               (85 commits on v7.3.0-milos: 72 patches + 13 topic-branch merges)
+
+Those patchsets were last synced on the following dates:
+  * milos:     2026-11-10
+  * catcrafts: 2026-11-10
+
+Linearization of catcrafts/
+---------------------------
+combined-stable is a merge of topic branches. It was rebuilt commit by commit
+(merges included) from Forgejo's per-commit .patch / merge .diff files, verified
+identical to Forgejo's v7.3.0-milos...combined-stable diff, then rebased into
+a linear series. Three patches needed their DTS hunks re-placed because
+topic branches add nodes at the same spot of milos-fairphone-fp6.dts (content
+unchanged, position only):
+  0012 arm64: dts: qcom: milos-fairphone-fp6: add WCD9378 codec node and capture dai-link
+  0021 arm64: dts: qcom: milos-fairphone-fp6: add sensor i2c bus and magnetometer
+  0056 arm64: dts: qcom: milos-fairphone-fp6: add the VL53L3 ToF ranger
+
+Verification
+------------
+  v7.3 + milos/            == milos-mainline v7.3.0-milos tarball (pmaports sha512 pin)
+  ... + catcrafts/         == Catcrafts combined-stable tree
+  ... + debian/ + mobian/  == the above plus exactly those two patches
+Whole series applies with `patch -p1 -F0` (as dpkg-source 3.0 (quilt) does);
+no binary, rename or mode-change hunks.
+
+debian/ and mobian/ patches were taken from Mobian-team qcom-linux branch
+wip/tiol/7.2-milos and apply unchanged on 7.3.

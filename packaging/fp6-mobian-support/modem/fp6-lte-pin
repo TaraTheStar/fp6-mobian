@@ -1,0 +1,68 @@
+#!/bin/sh
+# fp6-mobian-support: keep the FP6 modem on LTE.
+#
+# On T-Mobile US the modem registers PS-only on 5G SA: no SMS path (imsd
+# doesn't do SMS over IP) and data stalls. On LTE it does a combined cs-ps
+# attach, and SMS, data and VoLTE all work. ModemManager doesn't persist
+# allowed modes, and the modem or the Settings panel can switch them back, so
+# this watches ModemManager on D-Bus and re-applies the allowed modes whenever
+# a modem appears, changes state or changes its current modes.
+#
+# Configure in /etc/default/fp6-lte-pin:
+#   FP6_ALLOWED_MODES=4g      (default; mmcli syntax, e.g. "3g|4g")
+#   FP6_ALLOWED_MODES=        (empty: do nothing)
+# or `systemctl disable --now fp6-lte-pin`.
+MODES="${FP6_ALLOWED_MODES-4g}"
+if [ -z "$MODES" ]; then
+    echo "fp6-lte-pin: FP6_ALLOWED_MODES is empty, not pinning"
+    exit 0
+fi
+# mmcli takes "3g|4g" and prints "allowed: 3g, 4g; preferred: none"
+WANT="allowed: $(echo "$MODES" | sed 's/|/, /g'); preferred: none"
+# Shared by the main loop and the delayed recheck (RuntimeDirectory=)
+STATE="${RUNTIME_DIRECTORY:-/run/fp6-lte-pin}"
+mkdir -p "$STATE"
+
+apply() {
+    for m in $(mmcli -L 2>/dev/null | sed -n 's|.*/org/freedesktop/ModemManager1/Modem/\([0-9][0-9]*\).*|\1|p'); do
+        info="$(mmcli -m "$m" -K 2>/dev/null)" || continue
+        cur="$(printf '%s\n' "$info" | sed -n 's/^modem\.generic\.current-modes *: *//p')"
+        case "$cur" in
+            "$WANT") continue ;;
+            ""|--) continue ;;   # not known yet (modem still initializing)
+        esac
+        if ! printf '%s\n' "$info" | grep -q "^modem\.generic\.supported-modes\.value\[[0-9]*\] *: *$WANT\$"; then
+            echo "fp6-lte-pin: modem $m doesn't list '$WANT' as supported, leaving '$cur'"
+            continue
+        fi
+        # If a set doesn't stick, don't hammer the modem: at most one
+        # successful set a minute, then check again once the minute is up.
+        now="$(cut -d. -f1 /proc/uptime)"
+        last="$(cat "$STATE/last-set" 2>/dev/null || echo -1000)"
+        if [ $((now - last)) -lt 60 ]; then
+            # one pending recheck at most (mkdir is the lock)
+            if mkdir "$STATE/recheck" 2>/dev/null; then
+                echo "fp6-lte-pin: modem $m: '$cur' again within 60 s of the last set, rechecking in 60 s"
+                (sleep 60; rmdir "$STATE/recheck"; apply) &
+            fi
+            continue
+        fi
+        echo "fp6-lte-pin: modem $m: '$cur' -> allowed $MODES"
+        if mmcli -m "$m" --set-allowed-modes="$MODES"; then
+            echo "$now" > "$STATE/last-set"
+        else
+            echo "fp6-lte-pin: modem $m: setting allowed modes failed (retrying on the next modem event)"
+        fi
+    done
+}
+
+apply
+# One line per signal. React to new modems (ObjectManager InterfacesAdded),
+# state changes and current-modes changes; ignore the rest (signal quality etc).
+gdbus monitor --system --dest org.freedesktop.ModemManager1 | while read -r line; do
+    case "$line" in
+        *InterfacesAdded*|*"'CurrentModes'"*|*"'State'"*) apply ;;
+    esac
+done
+echo "fp6-lte-pin: lost the D-Bus monitor"
+exit 1

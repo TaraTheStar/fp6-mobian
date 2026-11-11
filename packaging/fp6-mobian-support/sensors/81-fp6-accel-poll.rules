@@ -1,0 +1,15 @@
+# FP6 / inv_icm42600: force iio-sensor-proxy onto its POLL accel backend.
+#
+# inv_icm42600 registers no IIO trigger (software kfifo buffer pushed from the
+# INT1 handler), but it does expose scan_elements/, so 80-iio-sensor-proxy.rules
+# tags the accel with BOTH "iio-poll-accel" and "iio-buffer-accel".
+# iio-sensor-proxy 3.9 tries iio-buffer-accel first, fails the trigger lookup
+# ("Could not find trigger name associated with ...") and does NOT fall back to
+# polling -- it registers the device anyway, so HasAccelerometer is true while
+# sensor_device stays NULL. Every ClaimAccelerometer then hits
+# "driver_set_polling: assertion sensor_device failed", AccelerometerOrientation
+# is stuck at "undefined" and Plasma auto-rotate is dead.
+#
+# Glob the name: the DTS carries an icm42630/icm42631 compatible pair, so the
+# IIO name follows whichever the fallback binds (see journal/imu/status.md).
+SUBSYSTEM=="iio", ATTR{name}=="icm426*-accel", ENV{IIO_SENSOR_PROXY_TYPE}="iio-poll-accel"
